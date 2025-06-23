@@ -1,5 +1,6 @@
 #include <math.h>
 #include <string.h>
+#include <stdio.h>
 
 /* Returns the value ln[Γ(xx)] for xx > 0. */
 float gammln(float xx)
@@ -24,4 +25,12 @@ unsigned int binaryToDecimal(const char *binaryStr) {
         }
     }
     return decimal;
+}
+
+void prn_binary(unsigned int x, int noloci)
+{
+for (int i = 0; i < 32 && i < noloci; ++i) {
+  if (x >> i & 0x1) putchar('1');
+  else putchar('0');
+}
 }

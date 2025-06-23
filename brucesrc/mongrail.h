@@ -2,7 +2,7 @@
 #define MAXLINESZ 100000
 #define MAXNAMESZ 1000
 #define MAXCHRNUM 1000
-#define MAXLOCI 20
+#define MAXLOCI 12
 #define MAXFILENMSZ 1000
 #define MAXHAPS 2048
 
@@ -11,6 +11,13 @@ struct genotype {
   char phase;
 };
 
+struct indiv
+{
+  unsigned int genotype1;
+  unsigned int genotype2;
+  unsigned int* compHaps;
+  int numHaps;
+};
 
 int findstring (char strarray[MAXCHRNUM][MAXNAMESZ], char *strtarget, int len);
 unsigned int binaryToDecimal (const char *binaryStr);
@@ -28,4 +35,12 @@ void err_line_n(char pAfn[MAXFILENMSZ], char pBfn[MAXFILENMSZ], char hybfn[MAXFI
 void pr_summary(char popAfileNm[MAXFILENMSZ], char popBfileNm[MAXFILENMSZ], char hybridfileNm[MAXFILENMSZ], int noChr, int no_loci[MAXCHRNUM], char chr_nm[MAXCHRNUM][MAXNAMESZ], int** popA_noIndivs, int** popB_noIndivs, int** pophybrid_noIndivs,unsigned long** positions);
 float gammln(float xx);
 void get_hap_counts(unsigned int** haplotypes, int** hap_counts, int noChr, int no_indiv);
+unsigned int count_haplotypes(unsigned int hap1, unsigned int hap2, int noloci);
+void compatible_haps(unsigned int *hapvec, unsigned int genotype1, unsigned int genotype2);
+void sortDiplotypes(struct indiv sampleInd);
 void pr_hapcounts(int** hap_counts, char chr_nm[MAXCHRNUM][MAXNAMESZ], int noChr);
+double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_counts, unsigned int** haplist, int* no_haps, int noSamplesPopY, int noChr);
+void add_hap(unsigned int hap, unsigned int** haplist, int* no_haps, int chrom);
+int find_hap(unsigned int hap, unsigned int** haplist, int* no_haps, int chrom);
+int identity2_hap(unsigned int hap1, unsigned int hap2);
+int identity1_hap(unsigned int hap1, unsigned int hap2);
