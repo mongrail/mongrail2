@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
   char popAfileNm[MAXFILENMSZ];
   char popBfileNm[MAXFILENMSZ];
   char hybridfileNm[MAXFILENMSZ];
-  int verbose=2;
+  int verbose=4;
   int linepos=0;
   int no_file_lines = 0;
   int noChrom = 0;
@@ -178,6 +178,8 @@ linepos=0;
   get_haplotypes(popB_haplotypes,popB_genotypes,noChrom,noSamplesPopB,no_loci);
 
   /* printing information to screen */
+
+  pr_summary(popAfileNm, popBfileNm, hybridfileNm, noChrom, no_loci, chr_names, popA_noIndivs, popB_noIndivs, pophybrid_noIndivs, marker_positions);
   
   if(verbose==1)
     {
@@ -191,11 +193,12 @@ linepos=0;
     {
       pr_chr_SNP_stats(noChrom, chr_names,no_loci, marker_positions);
       
-    } 
+    }
+  
       return 0;
 }
 
 void pr_progname(char* version)
 {
-  printf("MONGRAIL v%s\nhttps://github.com/mongrail/mongrail2\n\n",version);
+  printf("\nMONGRAIL v%s\nhttps://github.com/mongrail/mongrail2\n\n",version);
 }
