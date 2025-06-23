@@ -3,6 +3,7 @@
 #define MAXNAMESZ 1000
 #define MAXCHRNUM 1000
 #define MAXLOCI 20
+#define MAXFILENMSZ 1000
 
 struct genotype {
   int g1, g2;
@@ -21,3 +22,4 @@ void pr_haplotypes(int noChr, char chr_nm[MAXCHRNUM][MAXNAMESZ], unsigned int** 
 void pr_datastats(int noChr, char chr_nm[MAXCHRNUM][MAXNAMESZ], unsigned long** positions, int** popA_noIndivs, int** popB_noIndivs, int** pophybrid_noIndivs, int no_loci[MAXCHRNUM]);
 void pr_progname(char* version);
 void pr_chr_SNP_stats(int noChr, char chr_nm[MAXCHRNUM][MAXNAMESZ],int no_loci[MAXCHRNUM], unsigned long** positions);
+void err_line_n(char pAfn[MAXFILENMSZ], char pBfn[MAXFILENMSZ], char hybfn[MAXFILENMSZ]);

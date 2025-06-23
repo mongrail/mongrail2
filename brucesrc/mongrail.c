@@ -10,6 +10,9 @@
 int main(int argc, char *argv[])
 {
   char version[]="2.0";
+  char popAfileNm[MAXFILENMSZ];
+  char popBfileNm[MAXFILENMSZ];
+  char hybridfileNm[MAXFILENMSZ];
   int verbose=2;
   int linepos=0;
   int no_file_lines = 0;
@@ -34,24 +37,31 @@ int main(int argc, char *argv[])
  
   if (argc != 4)
     {
-      printf("Usage: %s popA popB hybrids\n", argv[0]);
+      fprintf(stderr,"Usage: %s popA popB hybrids\n", argv[0]);
       exit(1);
     }
 
+  strncpy(popAfileNm,argv[1],MAXFILENMSZ);
+  strncpy(popBfileNm,argv[2],MAXFILENMSZ);
+  strncpy(hybridfileNm,argv[3],MAXFILENMSZ);
+  
   pr_progname(version);
   
   /* read raw GT data into arrays of lines as strings */
-
-  no_file_lines = countfilelines(argv[1]);
+  /* total number of lines in popA.GT */ 
+  no_file_lines = countfilelines(popAfileNm);
+  /* error check: # lines equals # loci. Must be equal in popA.GT, popB.GT and hybrids.GT */
+  err_line_n(popAfileNm, popBfileNm, hybridfileNm);
+  /* create arrays to contain lines read from each input file */
   raw_data_popA = (char**)malloc(no_file_lines*sizeof(char *));
   raw_data_popB = (char**)malloc(no_file_lines*sizeof(char *));
   raw_data_hybrids = (char**)malloc(no_file_lines*sizeof(char *));
+  /* fill arrays with lines from each input file */
   file_to_array(raw_data_popA,argv[1]);
   file_to_array(raw_data_popB,argv[2]);
   file_to_array(raw_data_hybrids,argv[3]);
 
   /* get chromosomes names, number of chromsomes (noChrom) and number of markers for each chromosome (no_loci) */  
-
   noChrom = mk_chrom_list (raw_data_popA,chr_names,no_loci,no_file_lines);
 
   /* get marker positions for each chromosome */
