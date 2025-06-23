@@ -28,6 +28,9 @@ int main(int argc, char *argv[])
   struct genotype*** pophybrid_genotypes = NULL;
   unsigned int** popA_haplotypes = NULL;
   unsigned int** popB_haplotypes = NULL;
+  int** popA_hap_counts;
+  int** popB_hap_counts;
+  
   int** popA_noIndivs = NULL;
   int** popB_noIndivs = NULL;
   int** pophybrid_noIndivs = NULL;
@@ -177,9 +180,27 @@ linepos=0;
     popB_haplotypes[i] = (unsigned int *)malloc(2*noSamplesPopB*sizeof(unsigned int));
   get_haplotypes(popB_haplotypes,popB_genotypes,noChrom,noSamplesPopB,no_loci);
 
+  popA_hap_counts = (int **)malloc(noChrom*sizeof(int *));
+  for(int i=0; i<noChrom; i++)
+    popA_hap_counts[i] = (int *)malloc(MAXBINARY*sizeof(int));
+  for(int i=0; i<noChrom; i++)
+    for(int j=0; j<MAXBINARY; j++)
+      popA_hap_counts[i][j] = 0;
+  get_hap_counts(popA_haplotypes, popA_hap_counts, noChrom, noSamplesPopA);
+  
+  popB_hap_counts = (int **)malloc(noChrom*sizeof(int *));
+  for(int i=0; i<noChrom; i++)
+    popB_hap_counts[i] = (int *)malloc(MAXBINARY*sizeof(int));
+  get_hap_counts(popB_haplotypes, popB_hap_counts, noChrom, noSamplesPopB);
+  
   /* printing information to screen */
 
   pr_summary(popAfileNm, popBfileNm, hybridfileNm, noChrom, no_loci, chr_names, popA_noIndivs, popB_noIndivs, pophybrid_noIndivs, marker_positions);
+
+  printf("\npopulation A:\n");
+  pr_hapcounts(popA_hap_counts, chr_names, noChrom);
+  printf("\npopulation B:\n");
+  pr_hapcounts(popB_hap_counts, chr_names, noChrom);
   
   if(verbose==1)
     {

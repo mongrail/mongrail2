@@ -15,16 +15,6 @@ int findstring(char strarray[MAXCHRNUM][MAXNAMESZ], char *strtarget, int len)
   return(0);
 }
 
-unsigned int binaryToDecimal(const char *binaryStr) {
-    unsigned int decimal = 0;
-    int len = strlen(binaryStr);
-    for (int i = 0; i < len; i++) {
-        if (binaryStr[i] == '1') {
-            decimal += pow(2, len - 1 - i);
-        }
-    }
-    return decimal;
-}
 
 
 int countfilelines(char filename[])
@@ -153,7 +143,7 @@ void get_haplotypes(unsigned int** haplotypes, struct genotype*** gdata, int nCh
 	      hapstring_g2[k] = '1';
 	  }
 	hapstring_g1[nloci[i]]='\0';
-	hapstring_g1[nloci[i]]='\0';
+	hapstring_g2[nloci[i]]='\0';
 	haplotypes[i][j]=binaryToDecimal(hapstring_g1);
 	haplotypes[i][j+noInd]=binaryToDecimal(hapstring_g2);
       }
@@ -184,6 +174,14 @@ void get_haplotypes(unsigned int** haplotypes, struct genotype*** gdata, int nCh
 	}
   }
 
+void get_hap_counts(unsigned int** haplotypes, int** hap_counts, int noChr, int no_indiv)
+{
+  for(int i=0; i<noChr; i++)
+    for(int j=0; j<no_indiv; j++)
+      hap_counts[i][haplotypes[i][j]]++;
+}
+
+
 void pr_haplotypes(int noChr, char chr_nm[MAXCHRNUM][MAXNAMESZ], unsigned int** popA_haps, unsigned int** popB_haps, int nsPopA, int nsPopB)
 {
   printf("\nPopulation\tChromosome\tHaplotypes\n");
@@ -201,6 +199,17 @@ void pr_haplotypes(int noChr, char chr_nm[MAXCHRNUM][MAXNAMESZ], unsigned int** 
       printf("\nB\t%s ",chr_nm[i]);
       for(int j=0; j<2*nsPopB; j++)
 	printf(" %u",popB_haps[i][j]);
+    }
+}
+
+void pr_hapcounts(int** hap_counts, char chr_nm[MAXCHRNUM][MAXNAMESZ], int noChr)
+{
+  for(int i=0; i<noChr; i++)
+    {
+      printf("\n%s: ",chr_nm[i]);
+      for(int j=0; j<MAXBINARY; j++)
+	if(hap_counts[i][j] > 0)
+	  printf("%d: %d ",j,hap_counts[i][j]);
     }
 }
 

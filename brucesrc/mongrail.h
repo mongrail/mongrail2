@@ -4,6 +4,7 @@
 #define MAXCHRNUM 1000
 #define MAXLOCI 20
 #define MAXFILENMSZ 1000
+#define MAXBINARY 2048
 
 struct genotype {
   int g1, g2;
@@ -24,3 +25,6 @@ void pr_progname(char* version);
 void pr_chr_SNP_stats(int noChr, char chr_nm[MAXCHRNUM][MAXNAMESZ],int no_loci[MAXCHRNUM], unsigned long** positions);
 void err_line_n(char pAfn[MAXFILENMSZ], char pBfn[MAXFILENMSZ], char hybfn[MAXFILENMSZ]);
 void pr_summary(char popAfileNm[MAXFILENMSZ], char popBfileNm[MAXFILENMSZ], char hybridfileNm[MAXFILENMSZ], int noChr, int no_loci[MAXCHRNUM], char chr_nm[MAXCHRNUM][MAXNAMESZ], int** popA_noIndivs, int** popB_noIndivs, int** pophybrid_noIndivs,unsigned long** positions);
+float gammln(float xx);
+void get_hap_counts(unsigned int** haplotypes, int** hap_counts, int noChr, int no_indiv);
+void pr_hapcounts(int** hap_counts, char chr_nm[MAXCHRNUM][MAXNAMESZ], int noChr);
