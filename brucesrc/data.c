@@ -207,7 +207,7 @@ void pr_hapcounts(int** hap_counts, char chr_nm[MAXCHRNUM][MAXNAMESZ], int noChr
   for(int i=0; i<noChr; i++)
     {
       printf("\n%s: ",chr_nm[i]);
-      for(int j=0; j<MAXBINARY; j++)
+      for(int j=0; j<MAXHAPS; j++)
 	if(hap_counts[i][j] > 0)
 	  printf("%d: %d ",j,hap_counts[i][j]);
     }

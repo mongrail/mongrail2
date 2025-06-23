@@ -4,12 +4,13 @@
 #define MAXCHRNUM 1000
 #define MAXLOCI 20
 #define MAXFILENMSZ 1000
-#define MAXBINARY 2048
+#define MAXHAPS 2048
 
 struct genotype {
   int g1, g2;
   char phase;
 };
+
 
 int findstring (char strarray[MAXCHRNUM][MAXNAMESZ], char *strtarget, int len);
 unsigned int binaryToDecimal (const char *binaryStr);

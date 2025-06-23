@@ -4,7 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include "mongrail.h"
-
+#include "inference.h"
  
 
 int main(int argc, char *argv[])
@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
   char popAfileNm[MAXFILENMSZ];
   char popBfileNm[MAXFILENMSZ];
   char hybridfileNm[MAXFILENMSZ];
-  int verbose=4;
+  int verbose=1;
   int linepos=0;
   int no_file_lines = 0;
   int noChrom = 0;
@@ -30,7 +30,8 @@ int main(int argc, char *argv[])
   unsigned int** popB_haplotypes = NULL;
   int** popA_hap_counts;
   int** popB_hap_counts;
-  
+  unsigned int** haplist;
+  int* nohaps;
   int** popA_noIndivs = NULL;
   int** popB_noIndivs = NULL;
   int** pophybrid_noIndivs = NULL;
@@ -182,25 +183,46 @@ linepos=0;
 
   popA_hap_counts = (int **)malloc(noChrom*sizeof(int *));
   for(int i=0; i<noChrom; i++)
-    popA_hap_counts[i] = (int *)malloc(MAXBINARY*sizeof(int));
+    popA_hap_counts[i] = (int *)malloc(MAXHAPS*sizeof(int));
   for(int i=0; i<noChrom; i++)
-    for(int j=0; j<MAXBINARY; j++)
+    for(int j=0; j<MAXHAPS; j++)
       popA_hap_counts[i][j] = 0;
   get_hap_counts(popA_haplotypes, popA_hap_counts, noChrom, noSamplesPopA);
   
   popB_hap_counts = (int **)malloc(noChrom*sizeof(int *));
   for(int i=0; i<noChrom; i++)
-    popB_hap_counts[i] = (int *)malloc(MAXBINARY*sizeof(int));
+    popB_hap_counts[i] = (int *)malloc(MAXHAPS*sizeof(int));
   get_hap_counts(popB_haplotypes, popB_hap_counts, noChrom, noSamplesPopB);
+
+  /* get list of all possible unique haplotypes for each chromosome */
+
+  haplist = (unsigned int **)malloc(noChrom*sizeof(unsigned int *));
+  for(int i=0; i<noChrom; i++)
+    haplist[i] = (unsigned int *)malloc(MAXHAPS*sizeof(unsigned int));
+  nohaps = (int *)malloc(noChrom*sizeof(int));
+  for(int i=0; i<noChrom; i++)
+    {
+      for(int j=0; j < 2*popA_noIndivs[i][0]; j++)
+	{
+	  add_hap(popA_haplotypes[i][j], haplist, nohaps, i);
+	}
+      for(int j=0; j < 2*popB_noIndivs[i][0]; j++)
+	{
+	  add_hap(popB_haplotypes[i][j], haplist, nohaps, i);
+	}
+    }
+  
   
   /* printing information to screen */
 
   pr_summary(popAfileNm, popBfileNm, hybridfileNm, noChrom, no_loci, chr_names, popA_noIndivs, popB_noIndivs, pophybrid_noIndivs, marker_positions);
 
-  printf("\npopulation A:\n");
-  pr_hapcounts(popA_hap_counts, chr_names, noChrom);
-  printf("\npopulation B:\n");
-  pr_hapcounts(popB_hap_counts, chr_names, noChrom);
+  for(int i=0; i<noChrom; i++)
+    printf("Chr: %s nohaps[%d]:%d\n",chr_names[i],i,nohaps[i]);
+  /* printf("\npopulation A:\n"); */
+  /* pr_hapcounts(popA_hap_counts, chr_names, noChrom); */
+  /* printf("\npopulation B:\n"); */
+  /* pr_hapcounts(popB_hap_counts, chr_names, noChrom); */
   
   if(verbose==1)
     {
