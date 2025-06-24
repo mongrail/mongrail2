@@ -41,6 +41,6 @@ void sortDiplotypes(struct indiv sampleInd);
 void pr_hapcounts(int** hap_counts, char chr_nm[MAXCHRNUM][MAXNAMESZ], int noChr);
 double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_counts, unsigned int** haplist, int* no_haps, int noSamplesPopY, int noChr);
 void add_hap(unsigned int hap, unsigned int** haplist, int* no_haps, int chrom);
-int find_hap(unsigned int hap, unsigned int** haplist, int* no_haps, int chrom);
+void add_hap_lcopy(unsigned int hap, unsigned int* hlist, int* nhaps);
 int identity2_hap(unsigned int hap1, unsigned int hap2);
 int identity1_hap(unsigned int hap1, unsigned int hap2);

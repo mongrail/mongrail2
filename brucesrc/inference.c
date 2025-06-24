@@ -1,10 +1,13 @@
 #include "mongrail.h"
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_counts, unsigned int** haplist, int* no_haps, int noSamplesPopY, int noChr)
 {
   unsigned int hap1, hap2;
+  int nhaps=0;
+  unsigned int* hlist;
   int new_hap1 = 0;
   int new_hap2 = 0;
   int phi = 0;
@@ -15,6 +18,7 @@ double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_count
   double l2 = log(2.0);
   t1 = gammln(thetaB);
   t4 = gammln(thetaB + 2.0);
+  hlist = (unsigned int *)malloc(MAXHAPS*sizeof(unsigned int)); 
   for(int i=0; i<noChr; i++)
     {
       probL = 0.0;
@@ -22,57 +26,29 @@ double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_count
 	{
 	  hap1 = hybrid_indiv[i][indivIndex].compHaps[k];
 	  hap2 = hybrid_indiv[i][indivIndex].compHaps[k+1];
-	  new_hap1 = find_hap(hap1, haplist, no_haps, i);
-	  new_hap2 = find_hap(hap2, haplist, no_haps, i);
+	  /* create local copy of haplist */
+	  for(int h=0; h<no_haps[i]; h++)
+	    hlist[h] = haplist[i][h]; 
+	  nhaps = no_haps[i];
+	  /* add hybrid haplotypes */
+	  add_hap_lcopy(hap1,hlist,&nhaps);
+	  add_hap_lcopy(hap2,hlist,&nhaps);
+	  /* likelihood calculations */
 	  t3 = identity2_hap(hap1, hap2)*l2; 
-	  if(new_hap1&&new_hap2)
-	    {
-	      t2=0.0;
-	      t5=0.0;
-	      for(int j=0; j<no_haps[i]; j++)
-		t2 += gammln(popY_hap_counts[i][haplist[i][j]]+1.0/no_haps[i]);
-	      for(int j=0; j<no_haps[i]; j++)
+	  t2=0.0;
+	  t5=0.0;
+	  for(int j=0; j<nhaps; j++)
+		t2 += gammln(popY_hap_counts[i][hlist[j]]+1.0/nhaps);
+	      for(int j=0; j<nhaps; j++)
 		{
-		  phi = identity1_hap(haplist[i][j], hap1) + identity1_hap(haplist[i][j], hap2);
-		  t5 += gammln(phi + popY_hap_counts[i][haplist[i][j]] + 1.0/no_haps[i]);
+		  phi = identity1_hap(hlist[j], hap1) + identity1_hap(hlist[j], hap2);
+		  t5 += gammln(phi + popY_hap_counts[i][hlist[j]] + 1.0/nhaps);
 		}
 	      probL += exp(t1 - t2 + t3 - t4 + t5);
-	    }
-	  else
-	    if((new_hap1)||(new_hap2))
-	      {
-		t2=0.0;
-		t5=0.0;
-		for(int j=0; j<no_haps[i]; j++)
-		  t2 += gammln(popY_hap_counts[i][haplist[i][j]]+1.0/(no_haps[i]+1));
-		t2 += 1.0/(no_haps[i]+1);
-		for(int j=0; j<no_haps[i]; j++)
-		  {
-		    phi = identity1_hap(haplist[i][j], hap1) + identity1_hap(haplist[i][j], hap2);
-		    t5 += gammln(phi + popY_hap_counts[i][haplist[i][j]] + 1.0/(no_haps[i]+1));
-		  }
-		t5 += gammln(1.0 + 1.0/(no_haps[i]+1));
-	      probL += exp(t1 - t2 + t3 - t4 + t5);
-	      }
-	  else
-	    {
-	      t2=0.0;
-	      t5=0.0;
-	      for(int j=0; j<no_haps[i]; j++)
-		t2 += gammln(popY_hap_counts[i][haplist[i][j]]+1.0/(no_haps[i]+2));
-	      t2 += 2.0/(no_haps[i]+2);
-	      for(int j=0; j<no_haps[i]; j++)
-		{
-		  phi = identity1_hap(haplist[i][j], hap1) + identity1_hap(haplist[i][j], hap2);
-		  t5 += gammln(phi + popY_hap_counts[i][haplist[i][j]] + 1.0/(no_haps[i]+2));
-		}
-		t5 += 2.0*gammln(1.0 + 1.0/(no_haps[i]+2));
-	      probL += exp(t1 - t2 + t3 - t4 + t5);
-	    }
-	}	
+	}
       logL += log(probL);
-      //      printf("logL: %f\n",logL);
     }
+  free(hlist);
   return logL;
 }
 
@@ -102,18 +78,30 @@ void add_hap(unsigned int hap, unsigned int** haplist, int* no_haps, int chrom)
     }
 }
 
-int find_hap(unsigned int hap, unsigned int** haplist, int* no_haps, int chrom)
+void add_hap_lcopy(unsigned int hap, unsigned int* hlist, int* nhaps)
 {
   int hap_found = 0;
-  for(int i=0; i < no_haps[chrom]; i++) 
+  if(*nhaps == 0)
     {
-      if(haplist[chrom][i] == hap)
+      hlist[0] = hap;
+      *nhaps = 1;
+    }
+  else
+    {
+      for(int i=0; i < *nhaps; i++) 
 	{
-	  hap_found = 1;
-	  break;
+	  if(hlist[i] == hap)
+	    {
+	      hap_found = 1;
+	      break;
+	    }
+	}
+      if(hap_found == 0)
+	{
+	  hlist[*nhaps] = hap;
+	  *nhaps = *nhaps + 1;
 	}
     }
-  return hap_found;
 }
 
 int identity2_hap(unsigned int hap1, unsigned int hap2)
