@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
   char popAfileNm[MAXFILENMSZ];
   char popBfileNm[MAXFILENMSZ];
   char hybridfileNm[MAXFILENMSZ];
-  int verbose=4;
+  int verbose=1;
   int linepos=0;
   int no_file_lines = 0;
   int noChrom = 0;
@@ -40,7 +40,11 @@ int main(int argc, char *argv[])
   unsigned long** marker_positions = NULL;
   char chr_names[MAXCHRNUM][MAXNAMESZ];
   int no_loci[MAXCHRNUM] = {0};
- 
+  double recomb_rate_per_bp = 0.000001;
+  unsigned int pop_anc1;
+  int pop_anc2;
+
+  
   if (argc != 4)
     {
       fprintf(stderr,"Usage: %s popA popB hybrids\n", argv[0]);
@@ -54,20 +58,31 @@ int main(int argc, char *argv[])
   pr_progname(version);
   
   /* read raw GT data into arrays of lines as strings */
+  
   /* total number of lines in popA.GT */ 
+
   no_file_lines = countfilelines(popAfileNm);
-  /* error check: # lines equals # loci. Must be equal in popA.GT, popB.GT and hybrids.GT */
+
+  /* error checking: # lines equals # loci. Must be equal in popA.GT, popB.GT and hybrids.GT */
+
   err_line_n(popAfileNm, popBfileNm, hybridfileNm);
+
   /* create arrays to contain lines read from each input file */
+
   raw_data_popA = (char**)malloc(no_file_lines*sizeof(char *));
   raw_data_popB = (char**)malloc(no_file_lines*sizeof(char *));
   raw_data_hybrids = (char**)malloc(no_file_lines*sizeof(char *));
+
   /* fill arrays with lines from each input file */
+
   file_to_array(raw_data_popA,argv[1]);
   file_to_array(raw_data_popB,argv[2]);
   file_to_array(raw_data_hybrids,argv[3]);
 
+  /* parsing input data */
+  
   /* get chromosomes names, number of chromsomes (noChrom) and number of markers for each chromosome (no_loci) */  
+
   noChrom = mk_chrom_list (raw_data_popA,chr_names,no_loci,no_file_lines);
 
   /* get marker positions for each chromosome */
@@ -107,6 +122,9 @@ int main(int argc, char *argv[])
 	
     }
 
+  /* get number of individuals sampled in pop A and B and putative hybrids */
+  /* collect individual genotypes for each chromosome and locus */
+  
   popA_noIndivs = (int**)malloc(noChrom*sizeof(int *));
   for(int i=0; i<noChrom; i++)
     popA_noIndivs[i] = (int*)malloc(no_loci[i]*sizeof(int));
@@ -170,8 +188,8 @@ linepos=0;
     }
   noSamplesPophybrid = pophybrid_noIndivs[0][0];
  
-  
-  /* get population haplotypes as unsigned ints */
+  /* get sampled population haplotypes as unsigned ints */
+  /* number of haplotypes = 2 * number of individuals sampled */
   
   popA_haplotypes = (unsigned int **)malloc(noChrom*sizeof(unsigned int *));
   for(int i=0; i<noChrom; i++)
@@ -187,18 +205,22 @@ linepos=0;
   for(int i=0; i<noChrom; i++)
     hybrid_haplotypes[i] = (unsigned int *)malloc(2*noSamplesPophybrid*sizeof(unsigned int));
   get_haplotypes(hybrid_haplotypes,pophybrid_genotypes,noChrom,noSamplesPophybrid,no_loci);
+
+  /* summarize pop samples as haplotype counts in array of length MAXHAPS with base_10 haplotype as array index */ 
   
   popA_hap_counts = (int **)malloc(noChrom*sizeof(int *));
   for(int i=0; i<noChrom; i++)
     popA_hap_counts[i] = (int *)malloc(MAXHAPS*sizeof(int));
-  for(int i=0; i<noChrom; i++)
-    for(int j=0; j<MAXHAPS; j++)
-      popA_hap_counts[i][j] = 0;
-  get_hap_counts(popA_haplotypes, popA_hap_counts, noChrom, noSamplesPopA);
-  
   popB_hap_counts = (int **)malloc(noChrom*sizeof(int *));
   for(int i=0; i<noChrom; i++)
     popB_hap_counts[i] = (int *)malloc(MAXHAPS*sizeof(int));
+  for(int i=0; i<noChrom; i++)
+    for(int j=0; j<MAXHAPS; j++)
+      {
+	popA_hap_counts[i][j] = 0;
+	popB_hap_counts[i][j] = 0;
+      }
+  get_hap_counts(popA_haplotypes, popA_hap_counts, noChrom, noSamplesPopA);
   get_hap_counts(popB_haplotypes, popB_hap_counts, noChrom, noSamplesPopB);
 
   /* get hybrid individuals */
@@ -222,30 +244,6 @@ linepos=0;
 	sortDiplotypes(hybrid_indiv[i][j]);
       }
 
-  /* debugging */
-  for(int i=0; i<noChrom; i++)
-    {
-      printf("Chr: %s\n",chr_names[i]);
-      for(int j=0; j<noSamplesPophybrid; j++)
-	{
-	  printf("Indiv: %d Numhaps: %d compatible haps:\n",j,hybrid_indiv[i][j].numHaps);
-	  for(int k=0; k<hybrid_indiv[i][j].numHaps; k=k+2)
-	    {
-	      prn_binary(hybrid_indiv[i][j].compHaps[k],no_loci[i]);
-	      printf(" ");
-	      prn_binary(hybrid_indiv[i][j].compHaps[k+1],no_loci[i]);
-	      printf("\n");
-	    }
-
-	  
-	  /* printf("Indiv: %d Numhaps: %d compatible haps:\n",j,hybrid_indiv[i][j].numHaps); */
-	  /* for(int k=0; k<hybrid_indiv[i][j].numHaps; k++) */
-	  /*   printf(" %u ",hybrid_indiv[i][j].compHaps[k]); */
-	  /* printf("\n"); */
-	}
-    }
-  
-  
   /* get list of all possible unique haplotypes for each chromosome in pop A and B samples */
 
   haplist = (unsigned int **)malloc(noChrom*sizeof(unsigned int *));
@@ -264,20 +262,23 @@ linepos=0;
 	}
     }
 
-  for(int i=0; i<noSamplesPophybrid; i++)
-    printf("Indiv: %d Ma logL: %f Md logL: %f\n",i,lik_a_d(i,hybrid_indiv,popB_hap_counts,haplist,nohaps,noSamplesPopB,noChrom),lik_a_d(i,hybrid_indiv,popA_hap_counts,haplist,nohaps,noSamplesPopA,noChrom));
+  /* get intermarker distances in units of bps */
+  
 
+  /* debugging likelihoods */
+  /* for(int i=0; i<noSamplesPophybrid; i++) */
+  /*   printf("Indiv: %d Ma logL: %f Md logL: %f Mc logL: %f\n",i,lik_a_d(i,hybrid_indiv,popB_hap_counts,haplist,nohaps,noSamplesPopB,noChrom),lik_a_d(i,hybrid_indiv,popA_hap_counts,haplist,nohaps,noSamplesPopA,noChrom),lik_c(i,hybrid_indiv,popB_hap_counts,popA_hap_counts,haplist,nohaps,noSamplesPopB,noSamplesPopA,noChrom)); */
+
+  /*  debugging marginal haplotype counts */
+  printf("\nmarginal counts: %d\n",get_marginal_hap_counts(2,1,0,popB_hap_counts, haplist,nohaps,2));
+  printf("counts for hap 2 in popB at chrom 2: %d\n",popB_hap_counts[2][2]);
+  
   
   /* printing information to screen */
 
   pr_summary(popAfileNm, popBfileNm, hybridfileNm, noChrom, no_loci, chr_names, popA_noIndivs, popB_noIndivs, pophybrid_noIndivs, marker_positions);
 
-  /* for(int i=0; i<noChrom; i++) */
-  /*   printf("Chr: %s nohaps[%d]:%d\n",chr_names[i],i,nohaps[i]); */
-  /* printf("\npopulation A:\n"); */
-  /* pr_hapcounts(popA_hap_counts, chr_names, noChrom); */
-  /* printf("\npopulation B:\n"); */
-  /* pr_hapcounts(popB_hap_counts, chr_names, noChrom); */
+  /* optional information printing to screen for debugging */
   
   if(verbose==1)
     {

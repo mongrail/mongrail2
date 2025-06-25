@@ -39,8 +39,13 @@ unsigned int count_haplotypes(unsigned int hap1, unsigned int hap2, int noloci);
 void compatible_haps(unsigned int *hapvec, unsigned int genotype1, unsigned int genotype2);
 void sortDiplotypes(struct indiv sampleInd);
 void pr_hapcounts(int** hap_counts, char chr_nm[MAXCHRNUM][MAXNAMESZ], int noChr);
+void pr_compatible_haps_hybrids(int noChrom, char chr_names[MAXCHRNUM][MAXNAMESZ], struct indiv** hybrid_indiv, int noSamplesPophybrid, int no_loci[MAXCHRNUM]);
 double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_counts, unsigned int** haplist, int* no_haps, int noSamplesPopY, int noChr);
+double lik_c(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts, int** popA_hap_counts,
+	     unsigned int** haplist, int* no_haps, int noSamplesPopB,  int noSamplesPopA, int noChr);
 void add_hap(unsigned int hap, unsigned int** haplist, int* no_haps, int chrom);
 void add_hap_lcopy(unsigned int hap, unsigned int* hlist, int* nhaps);
 int identity2_hap(unsigned int hap1, unsigned int hap2);
 int identity1_hap(unsigned int hap1, unsigned int hap2);
+int match_sub_hap(unsigned int hyb_hap, unsigned int pop_hap, unsigned int ancvec);
+int get_marginal_hap_counts(unsigned int hyb_hap, int population, unsigned int ancvec, int** popY_hap_counts, unsigned int** haplist, int* no_haps, int chrom);
