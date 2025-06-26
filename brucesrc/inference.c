@@ -206,3 +206,45 @@ int get_marginal_hap_counts(unsigned int hyb_hap, int population, unsigned int a
       mhcount += popY_hap_counts[chrom][haplist[chrom][i]];
   return mhcount;
 }
+
+
+double prPopSwitch(double r, unsigned long d)
+{
+  return 1.0 - cosh(r*d)*exp(-r*d); 
+}
+
+double prQ(unsigned int anc, int noloci, double rec_rate_bp, unsigned long* position)
+{
+  double t1 = 0.0;
+  double t2 = 0.0;
+  double Q = 0.0;
+  double p = 0.0;
+  double pprod = 1.0;
+  unsigned int mask1 = intpow(2,noloci) - 2;
+  p = prPopSwitch(rec_rate_bp,position[0]);
+  if((anc & mask1) == 0)
+    {
+      t1 = 0.5*(1.0 - p);
+      t2 = 0.5*p;
+    }
+  else
+    {
+      t1 = 0.5*p;
+      t2 = 0.5*(1.0 - p);
+    }
+  int curr_anc = 0;
+  int prev_anc = ((anc >> 0)&1);
+  for(int i=1; i<noloci; i++)
+    {
+      curr_anc = ((anc >> i)&1);
+      p = prPopSwitch(rec_rate_bp,position[i]-position[i-1]); 
+      if(curr_anc != prev_anc)
+	pprod *= p;
+      else
+	pprod *= 1.0 - p;
+      prev_anc = ((anc >> i)&1);
+    }
+  Q = pprod*(t1 + t2);
+  return Q;
+}
+

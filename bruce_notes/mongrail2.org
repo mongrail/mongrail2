@@ -1,3 +1,3 @@
-* Data prepapration
+* Data preparation
 ** using bcftools
   bcftools query -f '%CHROM:%POS:\t\t[\t%GT]\n' popA.vcf.gz > popA.GT

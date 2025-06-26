@@ -4,7 +4,6 @@
 #include <string.h>
 #include <math.h>
 #include "mongrail.h"
-#include "algorithms.h"
  
 
 int main(int argc, char *argv[])
@@ -13,7 +12,7 @@ int main(int argc, char *argv[])
   char popAfileNm[MAXFILENMSZ];
   char popBfileNm[MAXFILENMSZ];
   char hybridfileNm[MAXFILENMSZ];
-  int verbose=1;
+  int verbose=4;
   int linepos=0;
   int no_file_lines = 0;
   int noChrom = 0;
@@ -265,19 +264,21 @@ linepos=0;
   /* get intermarker distances in units of bps */
   
 
-  /* debugging likelihoods */
-  /* for(int i=0; i<noSamplesPophybrid; i++) */
-  /*   printf("Indiv: %d Ma logL: %f Md logL: %f Mc logL: %f\n",i,lik_a_d(i,hybrid_indiv,popB_hap_counts,haplist,nohaps,noSamplesPopB,noChrom),lik_a_d(i,hybrid_indiv,popA_hap_counts,haplist,nohaps,noSamplesPopA,noChrom),lik_c(i,hybrid_indiv,popB_hap_counts,popA_hap_counts,haplist,nohaps,noSamplesPopB,noSamplesPopA,noChrom)); */
 
   /*  debugging marginal haplotype counts */
-  printf("\nmarginal counts: %d\n",get_marginal_hap_counts(2,1,0,popB_hap_counts, haplist,nohaps,2));
-  printf("counts for hap 2 in popB at chrom 2: %d\n",popB_hap_counts[2][2]);
+  /* printf("\nmarginal counts: %d\n",get_marginal_hap_counts(2,1,0,popB_hap_counts, haplist,nohaps,2)); */
+  /* printf("counts for hap 2 in popB at chrom 2: %d\n",popB_hap_counts[2][2]); */
   
   
   /* printing information to screen */
 
   pr_summary(popAfileNm, popBfileNm, hybridfileNm, noChrom, no_loci, chr_names, popA_noIndivs, popB_noIndivs, pophybrid_noIndivs, marker_positions);
 
+  /* debugging likelihoods */
+  for(int i=0; i<noSamplesPophybrid; i++)
+    printf("Indiv: %d Ma logL: %f Md logL: %f Mc logL: %f\n",i,lik_a_d(i,hybrid_indiv,popB_hap_counts,haplist,nohaps,noSamplesPopB,noChrom),lik_a_d(i,hybrid_indiv,popA_hap_counts,haplist,nohaps,noSamplesPopA,noChrom),lik_c(i,hybrid_indiv,popB_hap_counts,popA_hap_counts,haplist,nohaps,noSamplesPopB,noSamplesPopA,noChrom));
+
+  
   /* optional information printing to screen for debugging */
   
   if(verbose==1)

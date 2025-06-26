@@ -34,3 +34,13 @@ for (int i = 0; i < 32 && i < noloci; ++i) {
   else putchar('0');
 }
 }
+
+unsigned int intpow(unsigned int base, unsigned int exponent)
+{
+  unsigned int result = 1;
+  for (unsigned int i = 0; i < exponent; i++) {
+    result *= base;
+  }
+  return result;
+}
+
