@@ -261,18 +261,20 @@ linepos=0;
   haplist = (unsigned int **)malloc(noChrom*sizeof(unsigned int *));
   for(int i=0; i<noChrom; i++)
     haplist[i] = (unsigned int *)malloc(MAXHAPS*sizeof(unsigned int));
-  nohaps = (int *)malloc(noChrom*sizeof(int));
-  for(int i=0; i<noChrom; i++)
+  nohaps = (int *)calloc(0,noChrom*sizeof(int));
+
+ 
+  for(int z=0; z<noChrom; z++)
     {
-      for(int j=0; j < 2*popA_noIndivs[i][0]; j++)
+      for(int j=0; j < 2*popA_noIndivs[z][0]; j++)
 	{
-	  add_hap(popA_haplotypes[i][j], haplist, nohaps, i);
-	}
-      for(int j=0; j < 2*popB_noIndivs[i][0]; j++)
+	  add_hap(popA_haplotypes[z][j], haplist, nohaps, z);
+	  } 
+      for(int j=0; j < 2*popB_noIndivs[z][0]; j++)
 	{
-	  add_hap(popB_haplotypes[i][j], haplist, nohaps, i);
-	}
-    }
+	  add_hap(popB_haplotypes[z][j], haplist, nohaps, z);
+	  } 
+	} 
 
   /* get intermarker distances in units of bps */
   
@@ -288,7 +290,7 @@ linepos=0;
   pr_summary(popAfileNm, popBfileNm, hybridfileNm, noChrom, no_loci, chr_names, popA_noIndivs, popB_noIndivs, pophybrid_noIndivs, marker_positions);
 
   /* debugging likelihoods */
-  for(int i=0; i<noSamplesPophybrid; i++)
+   for(int i=0; i<noSamplesPophybrid; i++)
     printf("Indiv: %d Ma logL: %f Md logL: %f Mc logL: %f\n",i,lik_a_d(i,hybrid_indiv,popB_hap_counts,haplist,nohaps,noSamplesPopB,noChrom),lik_a_d(i,hybrid_indiv,popA_hap_counts,haplist,nohaps,noSamplesPopA,noChrom),lik_c(i,hybrid_indiv,popB_hap_counts,popA_hap_counts,haplist,nohaps,noSamplesPopB,noSamplesPopA,noChrom));
 
   
