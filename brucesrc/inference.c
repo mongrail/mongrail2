@@ -24,6 +24,7 @@ double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_count
 	{
 	  hap1 = hybrid_indiv[i][indivIndex].compHaps[k];
 	  hap2 = hybrid_indiv[i][indivIndex].compHaps[k+1];
+
 	  /* create local copy of haplist */
 	  for(int h=0; h<no_haps[i]; h++)
 	    hlist[h] = haplist[i][h]; 

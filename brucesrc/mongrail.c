@@ -241,6 +241,13 @@ linepos=0;
 	hybrid_indiv[i][j].numHaps = count_haplotypes(hybrid_indiv[i][j].genotype1,hybrid_indiv[i][j].genotype2,no_loci[i]);
 	compatible_haps(hybrid_indiv[i][j].compHaps, hybrid_indiv[i][j].genotype1, hybrid_indiv[i][j].genotype2);
 	sortDiplotypes(hybrid_indiv[i][j]);
+	/* debugging begins */
+	/* printf("hybrid indiv: %d chrom: %d compatible haploypes: ",j,i); */
+	/* for(int nh=0; nh < hybrid_indiv[i][j].numHaps; nh++) */
+	/*   printf(" %u ",hybrid_indiv[i][j].compHaps[nh]); */
+	/* printf("\n"); */
+	/* debugging ends */
+	
       }
 
   /* get list of all possible unique haplotypes for each chromosome in pop A and B samples */

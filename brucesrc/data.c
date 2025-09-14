@@ -46,7 +46,7 @@ void file_to_array (char *target_array[MAXLINESZ], char filename[])
     }
   while (fgets(buffer, MAXLINESZ, fp) != NULL) {
     size_t len = strlen(buffer);
-    if (len > 0 && buffer[len - 1] == '\n') {
+    if (len > 0) {
       buffer[len - 1] = '\0';
     }
     target_array[linepos] = strdup(buffer);
