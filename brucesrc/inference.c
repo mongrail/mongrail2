@@ -32,6 +32,12 @@ double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_count
 	  /* add hybrid haplotypes */
 	  add_hap_lcopy(hap1,hlist,&nhaps);
 	  add_hap_lcopy(hap2,hlist,&nhaps);
+	  /*debugging begins */
+ 	  /* printf("hybrid indiv: %d chrom: %d Haplotype list: ",indivIndex,i); */
+	  /* for(int ha=0; ha<nhaps; ha++) */
+	  /*   printf(" %d ", hlist[ha]); */
+	  /* printf("\n"); */
+	  /*debugging ends */
 	  /* likelihood calculations */
 	  t3 = identity2_hap(hap1, hap2)*l2; 
 	  t2=0.0;

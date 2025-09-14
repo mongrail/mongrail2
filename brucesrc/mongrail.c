@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
   char popAfileNm[MAXFILENMSZ];
   char popBfileNm[MAXFILENMSZ];
   char hybridfileNm[MAXFILENMSZ];
-  int verbose=4;
+  int verbose=1;
   int linepos=0;
   int no_file_lines = 0;
   int noChrom = 0;
@@ -53,6 +53,7 @@ int main(int argc, char *argv[])
   strncpy(popAfileNm,argv[1],MAXFILENMSZ);
   strncpy(popBfileNm,argv[2],MAXFILENMSZ);
   strncpy(hybridfileNm,argv[3],MAXFILENMSZ);
+
   
   pr_progname(version);
   
@@ -60,10 +61,14 @@ int main(int argc, char *argv[])
   
   /* total number of lines in popA.GT */ 
 
+
+  
   no_file_lines = countfilelines(popAfileNm);
 
   /* error checking: # lines equals # loci. Must be equal in popA.GT, popB.GT and hybrids.GT */
 
+
+  
   err_line_n(popAfileNm, popBfileNm, hybridfileNm);
 
   /* create arrays to contain lines read from each input file */
@@ -186,7 +191,8 @@ linepos=0;
       pophybrid_noIndivs[i][j] = get_genotypes(raw_data_hybrids[linepos],pophybrid_genotypes[i][j]);
     }
   noSamplesPophybrid = pophybrid_noIndivs[0][0];
- 
+
+  
   /* get sampled population haplotypes as unsigned ints */
   /* number of haplotypes = 2 * number of individuals sampled */
   
