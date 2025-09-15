@@ -106,7 +106,7 @@ double lik_c(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts,
 	  for(int j=0; j<nhaps; j++)
 	    {
 	      t2A += gammln(popA_hap_counts[i][hlist[j]]+1.0/nhaps);
-	      t2B += gammln(popA_hap_counts[i][hlist[j]]+1.0/nhaps);
+	      t2B += gammln(popB_hap_counts[i][hlist[j]]+1.0/nhaps);
 	    }
 	  for(int j=0; j<nhaps; j++)
 	    {

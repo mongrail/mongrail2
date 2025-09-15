@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
   char popAfileNm[MAXFILENMSZ];
   char popBfileNm[MAXFILENMSZ];
   char hybridfileNm[MAXFILENMSZ];
-  int verbose=1;
+  int verbose=4;
   int linepos=0;
   int no_file_lines = 0;
   int noChrom = 0;
@@ -260,21 +260,33 @@ linepos=0;
 
   haplist = (unsigned int **)malloc(noChrom*sizeof(unsigned int *));
   for(int i=0; i<noChrom; i++)
-    haplist[i] = (unsigned int *)malloc(MAXHAPS*sizeof(unsigned int));
-  nohaps = (int *)calloc(0,noChrom*sizeof(int));
+    {
+      haplist[i] = (unsigned int *)malloc(MAXHAPS*sizeof(unsigned int));
+      if (haplist[i] == NULL)
+	{
+            perror("Memory allocation failed");
+            return EXIT_FAILURE;
+	}
+    }
+  nohaps = (int *)calloc(4,noChrom*sizeof(int));
 
  
-  for(int z=0; z<noChrom; z++)
+  /* debugging commented out bug is here! */
+  /* seg fault processing chromosome 8 */
+  /* seems to be related to size parameter of calloc */
+
+    for(int z=0; z<noChrom; z++)
     {
       for(int j=0; j < 2*popA_noIndivs[z][0]; j++)
 	{
 	  add_hap(popA_haplotypes[z][j], haplist, nohaps, z);
-	  } 
+	} 
       for(int j=0; j < 2*popB_noIndivs[z][0]; j++)
 	{
 	  add_hap(popB_haplotypes[z][j], haplist, nohaps, z);
-	  } 
 	} 
+    } 
+  
 
   /* get intermarker distances in units of bps */
   
@@ -291,7 +303,14 @@ linepos=0;
 
   /* debugging likelihoods */
    for(int i=0; i<noSamplesPophybrid; i++)
-    printf("Indiv: %d Ma logL: %f Md logL: %f Mc logL: %f\n",i,lik_a_d(i,hybrid_indiv,popB_hap_counts,haplist,nohaps,noSamplesPopB,noChrom),lik_a_d(i,hybrid_indiv,popA_hap_counts,haplist,nohaps,noSamplesPopA,noChrom),lik_c(i,hybrid_indiv,popB_hap_counts,popA_hap_counts,haplist,nohaps,noSamplesPopB,noSamplesPopA,noChrom));
+     {
+       printf("Indiv: %d Ma logL: %f\n",i,lik_a_d(i,hybrid_indiv,popB_hap_counts,haplist,nohaps,noSamplesPopB,noChrom));
+       printf("Indiv: %d Md logL: %f\n",i,lik_a_d(i,hybrid_indiv,popA_hap_counts,haplist,nohaps,noSamplesPopA,noChrom));
+       printf("Indiv: %d Mc logL: %f\n",i,lik_c(i,hybrid_indiv,popB_hap_counts,popA_hap_counts,haplist,nohaps,noSamplesPopB,noSamplesPopA,noChrom));
+     }
+
+
+   /*    printf("Indiv: %d Ma logL: %f Md logL: %f Mc logL: %f\n",i,lik_a_d(i,hybrid_indiv,popB_hap_counts,haplist,nohaps,noSamplesPopB,noChrom),lik_a_d(i,hybrid_indiv,popA_hap_counts,haplist,nohaps,noSamplesPopA,noChrom), */
 
   
   /* optional information printing to screen for debugging */

@@ -2,7 +2,7 @@
 #define MAXLINESZ 100000
 #define MAXNAMESZ 1000
 #define MAXCHRNUM 1000
-#define MAXLOCI 12
+#define MAXLOCI 10
 #define MAXFILENMSZ 1000
 #define MAXHAPS 2048
 
