@@ -220,9 +220,9 @@ void compatible_haps(unsigned int *hapvec, unsigned int genotype1, unsigned int 
 	}
       else
 	{
-	  if((mask << j) & genotype1)
-	    for(int i=0;i<hapNo;i++)
-	      hapvec[i] = (mask << j) ^ hapvec[i];
+	  /* if((mask << j) & genotype1) */
+	  /*   for(int i=0;i<hapNo;i++) */
+	  /*     hapvec[i] = (mask << j) ^ hapvec[i]; */
 	}
     }
 }
@@ -230,7 +230,6 @@ void compatible_haps(unsigned int *hapvec, unsigned int genotype1, unsigned int 
 /* arrange haplotypes into successive pairs (hap1,hap2) of diplotypes: even = hap1, odd = hap2 */
 void sortDiplotypes(struct indiv sampleInd)
 {
-  int totalDiplos=0;
   int j;
   int i=0;
   if(sampleInd.numHaps > 2)
@@ -243,7 +242,6 @@ void sortDiplotypes(struct indiv sampleInd)
 	      if((sampleInd.compHaps[i] ^ sampleInd.compHaps[j]) ==
 		 (sampleInd.genotype1 ^ sampleInd.genotype2))
 		{
-		  totalDiplos+=1;
 		  unsigned int temp = sampleInd.compHaps[i+1];
 		  sampleInd.compHaps[i+1] = sampleInd.compHaps[j];
 		  sampleInd.compHaps[j] = temp;
