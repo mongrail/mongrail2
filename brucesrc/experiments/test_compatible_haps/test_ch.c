@@ -3,9 +3,8 @@
 #include <assert.h>
 #include <string.h>
 #include <math.h>
+#include "bit.h"
 
-#define MAXHAPS 1024
-#define MAXLOCI 10
 
 /* get number of polymorphic sites and number of haplotypes for hybrid indivs */
 unsigned int count_haplotypes(unsigned int hap1, unsigned int hap2, int noloci)
@@ -60,10 +59,13 @@ void compatible_haps(unsigned int *hapvec, unsigned int genotype1, unsigned int 
 
 int main(int argc, char *argv[])
 {
-  unsigned int* hvec = calloc(MAXHAPS,sizeof(unsigned int));
-  compatible_haps(hvec, 2, 1);
-  int hcount = count_haplotypes(2, 1, 2);
-  printf("hcount: %d\n",hcount);
-  for(int i=0; i<2*hcount; i++)
-    printf("hap: %d is %u\n",i,hvec[i]);
+   struct indiv sampleInd;
+   sampleInd.compHaps = calloc(MAXHAPS,sizeof(unsigned int));
+   sampleInd.genotype1 = 3;
+   sampleInd.genotype2 = 0;
+   compatible_haps(sampleInd.compHaps, sampleInd.genotype1, sampleInd.genotype2);
+   sampleInd.numHaps = count_haplotypes(1, 0, 2);
+   printf("hcount: %d\n",sampleInd.numHaps);
+   for(int i=0; i<sampleInd.numHaps; i++)
+     printf("hap: %d is %u\n",i,sampleInd.compHaps[i]);
 }

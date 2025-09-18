@@ -253,6 +253,11 @@ void sortDiplotypes(struct indiv sampleInd)
 	    }
 	}
     }
+  else
+    {
+    sampleInd.compHaps[0] = sampleInd.genotype1;
+    sampleInd.compHaps[1] = sampleInd.genotype2;
+    }
 }
 
 
