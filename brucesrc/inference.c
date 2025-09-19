@@ -212,7 +212,6 @@ int get_marginal_hap_counts(unsigned int hyb_hap, int population, unsigned int a
   return mhcount;
 }
 
-
 double prPopSwitch(double r, unsigned long d)
 {
   return 1.0 - cosh(r*d)*exp(-r*d); 
