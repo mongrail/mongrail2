@@ -62,6 +62,12 @@ int get_marginal_hap_counts(unsigned int hyb_hap, unsigned int ancvec, int** pop
   return mhcount;
 }
 
+unsigned int get_anc_complement(unsigned int ancvec,int noloci)
+{
+  unsigned int cav = ~ancvec; 
+  return cav - intpow(2,32) + intpow(2,noloci);;
+}
+
 int main()
 {
   int noloci=3;
@@ -71,7 +77,7 @@ int main()
   int ** pophapCounts;
   unsigned int ** hlist;
   char * bin_number;
-  unsigned int ancvec=3;  
+  unsigned int ancvec=5;  
   unsigned int hybrid=5;
   int nhapvec[] = {3,3}; 
   maxhaps=intpow(2,noloci);
@@ -88,7 +94,8 @@ int main()
   hlist[0][0]=0;
   hlist[0][1]=7;
   hlist[0][2]=1;
-  
+
+  unsigned int comp_ancvec = get_anc_complement(ancvec,noloci);  
   printf("pop_counts: ");
   for(unsigned int i=0; i<maxhaps; i++)
     {
@@ -106,6 +113,8 @@ int main()
       free(bin_number);
     }
   printf("\n");
-  printf("ancvec: %s hvbrid: %s marginal counts: %d\n",decToBinary(ancvec,noloci),decToBinary(hybrid,noloci),get_marginal_hap_counts(hybrid,ancvec,pophapCounts,hlist,nhapvec,0));
-  
+  printf("hvbrid: %s\n",decToBinary(hybrid,noloci)); 
+  printf("ancvec: %s marginal counts: %d\n",decToBinary(ancvec,noloci),get_marginal_hap_counts(hybrid,ancvec,pophapCounts,hlist,nhapvec,0));
+  printf("comp_ancvec: %s marginal counts: %d\n",decToBinary(comp_ancvec,noloci),get_marginal_hap_counts(hybrid,comp_ancvec,pophapCounts,hlist,nhapvec,0));  
 }
+

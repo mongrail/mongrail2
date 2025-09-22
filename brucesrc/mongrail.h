@@ -43,6 +43,8 @@ void pr_compatible_haps_hybrids(int noChrom, char chr_names[MAXCHRNUM][MAXNAMESZ
 double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_counts, unsigned int** haplist, int* no_haps, int noSamplesPopY, int noChr);
 double lik_c(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts, int** popA_hap_counts,
 	     unsigned int** haplist, int* no_haps, int noSamplesPopB,  int noSamplesPopA, int noChr);
+double lik_b_e(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts, int** popA_hap_counts,
+	       unsigned int** haplist, int* no_haps, int noSamplesPopB,  int noSamplesPopA, int noChr);
 void add_hap(unsigned int hap, unsigned int** haplist, int* no_haps, int chrom);
 void add_hap_lcopy(unsigned int hap, unsigned int* hlist, int* nhaps);
 int identity2_hap(unsigned int hap1, unsigned int hap2);
@@ -55,3 +57,4 @@ float gammln(float xx);
 unsigned int binaryToDecimal(const char *binaryStr);
 void prn_binary(unsigned int x, int noloci);
 unsigned int intpow(unsigned int base, unsigned int exponent);
+unsigned int get_anc_complement(unsigned int ancvec,int noloci);
