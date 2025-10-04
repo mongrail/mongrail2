@@ -47,9 +47,9 @@ void compatible_haps(unsigned int *hapvec, unsigned int genotype1, unsigned int 
 	}
       else
 	{
-	  if((mask << j) & genotype1) 
-	    for(int i=0;i<hapNo;i++) 
-	      hapvec[i] = (mask << j) ^ hapvec[i]; 
+	  /* if((mask << j) & genotype1)  */
+	  /*   for(int i=0;i<hapNo;i++)  */
+	  /*     hapvec[i] = (mask << j) ^ hapvec[i];  */
 	}
     }
 }

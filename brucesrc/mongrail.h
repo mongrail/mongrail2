@@ -44,7 +44,7 @@ double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_count
 double lik_c(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts, int** popA_hap_counts,
 	     unsigned int** haplist, int* no_haps, int noSamplesPopB,  int noSamplesPopA, int noChr);
 double lik_b_e(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts, int** popA_hap_counts,
-	       unsigned int** haplist, int* no_haps, int noSamplesPopB,  int noSamplesPopA, int noChr);
+	       unsigned int** haplist, int* no_haps, int noSamplesPopB,  int noSamplesPopA, int noChr, char model);
 void add_hap(unsigned int hap, unsigned int** haplist, int* no_haps, int chrom);
 void add_hap_lcopy(unsigned int hap, unsigned int* hlist, int* nhaps);
 int identity2_hap(unsigned int hap1, unsigned int hap2);
