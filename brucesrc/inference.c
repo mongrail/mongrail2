@@ -6,52 +6,40 @@
 double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_counts, unsigned int** haplist, int* no_haps, int noSamplesPopY, int noChr)
 {
   unsigned int hap1, hap2;
-  int nhaps=0;
-  unsigned int* hlist;
   int phi = 0;
   double logL = 0.0;
   double probL = 0.0;
+  double *probV = (double *) malloc(MAXHAPS*sizeof(double));
   double t1, t2, t3, t4, t5;
   double thetaB = 1.0 + 2.0*noSamplesPopY;
   double l2 = log(2.0);
   t1 = gammln(thetaB);
   t4 = gammln(thetaB + 2.0);
-  hlist = (unsigned int *)malloc(MAXHAPS*sizeof(unsigned int)); 
   for(int i=0; i<noChr; i++)
     {
       probL = 0.0;
-      for(int k=0; k<hybrid_indiv[i][indivIndex].numHaps; k=k+2)
+      /* for(int k=0; k<hybrid_indiv[i][indivIndex].numHaps; k=k+2) */
+      for(int k=hybrid_indiv[i][indivIndex].numHaps-1; k>=0; k=k-2)
 	{
 	  hap1 = hybrid_indiv[i][indivIndex].compHaps[k];
 	  hap2 = hybrid_indiv[i][indivIndex].compHaps[k+1];
-
-	  /* create local copy of haplist */
-	  for(int h=0; h<no_haps[i]; h++)
-	    hlist[h] = haplist[i][h]; 
-	  nhaps = no_haps[i];
-	  /* add hybrid haplotypes */
-	  add_hap_lcopy(hap1,hlist,&nhaps);
-	  add_hap_lcopy(hap2,hlist,&nhaps);
-	  /* debugging begins */
- 	  /* printf("hybrid indiv: %d chrom: %d Haplotype list: ",indivIndex,i); */
-	  /* for(int ha=0; ha<nhaps; ha++) */
-	  /*   printf(" %d ", hlist[ha]); */
-	  /* printf("\n"); */
-	  /* debugging ends */
 	  /* likelihood calculations */
 	  t3 = identity2_hap(hap1, hap2)*l2; 
 	  t2=0.0;
 	  t5=0.0;
-	  for(int j=0; j<nhaps; j++)
+	  for(int j=0; j<no_haps[i]; j++)
 	    {
-	      phi = identity1_hap(hlist[j], hap1) + identity1_hap(hlist[j], hap2);
-	      t5 += gammln(phi + popY_hap_counts[i][hlist[j]] + 1.0/nhaps) - gammln(popY_hap_counts[i][hlist[j]]+1.0/nhaps);
+	      phi = identity1_hap(haplist[i][j], hap1) + identity1_hap(haplist[i][j], hap2);
+	      t5 += gammln(phi + popY_hap_counts[i][haplist[i][j]] + 1.0/no_haps[i]) - gammln(popY_hap_counts[i][haplist[i][j]]+1.0/no_haps[i]);
 	    }
-	  probL += exp(t1+ t3 - t4 + t5);
+	  probV[k] = exp(t1 + t3 - t4 + t5);
+	  /* probL += exp(t1 + t3 - t4 + t5); */
 	}
+      for(int k=hybrid_indiv[i][indivIndex].numHaps-1; k>=0; k=k-2)
+	  probL += probV[k];
       logL += log(probL);
     }
-  free(hlist);
+  free(probV);
   return logL;
 }
 
@@ -59,12 +47,12 @@ double lik_c(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts,
 	     unsigned int** haplist, int* no_haps, int noSamplesPopB,  int noSamplesPopA, int noChr)
 {
   unsigned int hap1, hap2;
-  int nhaps=0;
-  unsigned int* hlist;
   int phi1 = 0;
   int phi2 = 0;
   double logL = 0.0;
   double probL = 0.0;
+  double norm_factor;
+  double *probV = (double *) malloc(MAXHAPS*sizeof(double));
   double thetaA = 1.0 + 2.0*noSamplesPopA;
   double thetaB = 1.0 + 2.0*noSamplesPopB;
   double lgt1A = gammln(thetaA);
@@ -74,21 +62,15 @@ double lik_c(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts,
   double t2A, t2B;
   double t4h1A, t4h2A, t4h1B, t4h2B;
   double p1A, p1B, p2A, p2B;
-  hlist = (unsigned int *)malloc(MAXHAPS*sizeof(unsigned int)); 
+
   for(int i=0; i<noChr; i++)
     {
       probL = 0.0;
-      for(int k=0; k<hybrid_indiv[i][indivIndex].numHaps; k=k+2)
+      for(int k=0; k<hybrid_indiv[i][indivIndex].numHaps; k=k+2) 
+	/* for(int k=hybrid_indiv[i][indivIndex].numHaps-1; k>=0; k=k-2) */
 	{
 	  hap1 = hybrid_indiv[i][indivIndex].compHaps[k];
 	  hap2 = hybrid_indiv[i][indivIndex].compHaps[k+1];
-	  /* create local copy of haplist */
-	  for(int h=0; h<no_haps[i]; h++)
-	    hlist[h] = haplist[i][h]; 
-	  nhaps = no_haps[i];
-	  /* add hybrid haplotypes */
-	  add_hap_lcopy(hap1,hlist,&nhaps);
-	  add_hap_lcopy(hap2,hlist,&nhaps);
 	  /* likelihood calculations */
 	  t2A = 0.0;
 	  t2B = 0.0;
@@ -96,34 +78,34 @@ double lik_c(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts,
 	  t4h2A = 0.0;
 	  t4h1B = 0.0;
 	  t4h2B = 0.0;
-	  p1A = 0.0;
-	  p1B = 0.0;
-	  p2A = 0.0;
-	  p2B = 0.0;
-	  
-	  for(int j=0; j<nhaps; j++)
+	  for(int j=0; j<no_haps[i]; j++)
 	    {
-	      t2A += gammln(popA_hap_counts[i][hlist[j]]+1.0/nhaps);
-	      t2B += gammln(popB_hap_counts[i][hlist[j]]+1.0/nhaps);
+	      t2A += gammln(popA_hap_counts[i][haplist[i][j]]+1.0/no_haps[i]);
+	      t2B += gammln(popB_hap_counts[i][haplist[i][j]]+1.0/no_haps[i]);
 	    }
-	  for(int j=0; j<nhaps; j++)
+	  for(int j=0; j<no_haps[i]; j++)
 	    {
-	      phi1 = identity1_hap(hlist[j], hap1);
-	      phi2 = identity1_hap(hlist[j], hap2);
-	      t4h1A += gammln(phi1 + popA_hap_counts[i][hlist[j]] + 1.0/nhaps);
-	      t4h2A += gammln(phi2 + popA_hap_counts[i][hlist[j]] + 1.0/nhaps);
-	      t4h1B += gammln(phi1 + popB_hap_counts[i][hlist[j]] + 1.0/nhaps);
-	      t4h2B += gammln(phi2 + popB_hap_counts[i][hlist[j]] + 1.0/nhaps);
+	      phi1 = identity1_hap(haplist[i][j], hap1);
+	      phi2 = identity1_hap(haplist[i][j], hap2);
+	      t4h1A += gammln(phi1 + popA_hap_counts[i][haplist[i][j]] + 1.0/no_haps[i]);
+	      t4h2A += gammln(phi2 + popA_hap_counts[i][haplist[i][j]] + 1.0/no_haps[i]);
+	      t4h1B += gammln(phi1 + popB_hap_counts[i][haplist[i][j]] + 1.0/no_haps[i]);
+	      t4h2B += gammln(phi2 + popB_hap_counts[i][haplist[i][j]] + 1.0/no_haps[i]);
 	    }
 	  p1A = exp(lgt1A - t2A - lgt2A + t4h1A);
 	  p1B = exp(lgt1B - t2B - lgt2B + t4h1B);
 	  p2A = exp(lgt1A - t2A - lgt2A + t4h2A);
 	  p2B = exp(lgt1B - t2B - lgt2B + t4h2B);
-	  probL += identity1_hap(hap1, hap2)*(p1A*p2B+p2A*p1B)+(1 - identity1_hap(hap1, hap2))*(p1A*p2B); 
+	  probV[k] = identity2_hap(hap1, hap2)*(p1A*p2B+p2A*p1B)+(1 - identity2_hap(hap1, hap2))*(p1A*p2B);
+	  /* probL += identity2_hap(hap1, hap2)*(p1A*p2B+p2A*p1B)+(1 - identity2_hap(hap1, hap2))*(p1A*p2B);  */
 	}
+      norm_factor = max_element(probV,hybrid_indiv[i][indivIndex].numHaps);
+      printf("norm_factor: %f\n",norm_factor);
+      for(int a=0; a<hybrid_indiv[i][indivIndex].numHaps; a++)
+	probV[a]=probV[a]*(1.0/(2.0*norm_factor));
+      probL = kahanSum(probV, hybrid_indiv[i][indivIndex].numHaps)*2.0*norm_factor;
       logL += log(probL);
     }
-  free(hlist);
   return logL;
 }
 
@@ -197,13 +179,34 @@ double lik_b_e(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_count
 	      p1B = exp(lgt1B - t2B - lgt2B + t4h1B);
 	      p2B = exp(lgt1B - t2B - lgt2B + t4h2B);
 	    }
-	  probL += identity1_hap(hap1, hap2)*(p1A*p2B+p2A*p1B)+(1 - identity1_hap(hap1, hap2))*(p1A*p2B); 
+	  probL += identity2_hap(hap1, hap2)*(p1A*p2B+p2A*p1B)+(1 - identity2_hap(hap1, hap2))*(p1A*p2B); 
 	}
       logL += log(probL);
     }
   return 0.0;
 }
 
+// Function to perform Kahan summation
+double kahanSum(double arr[], int n) {
+    double sum = 0.0;
+    double c = 0.0; // A running compensation for lost low-order bits
+
+    for (int i = 0; i < n; i++) {
+        double y = arr[i] - c;
+        double t = sum + y;
+        c = (t - sum) - y; // Calculate the lost low-order bits
+        sum = t;
+    }
+    return sum;
+}
+
+double max_element(double arr[], int n)
+{
+  double currmax=0.0;
+  for(int i=0; i<n; i++)
+    currmax = fmaxf(currmax,arr[i]);
+  return(currmax);
+}
 
 void add_hap(unsigned int hap, unsigned int** haplist, int* no_haps, int chrom)
 {

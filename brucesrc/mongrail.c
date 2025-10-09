@@ -285,7 +285,16 @@ linepos=0;
 	{
 	  add_hap(popB_haplotypes[z][j], haplist, nohaps, z);
 	} 
-    } 
+    }
+
+    /* add all possible haplotypes in hybrids */
+    for(int z=0; z<noChrom; z++)
+      for(int j=0; j<noSamplesPophybrid; j++)
+	for(int h=0; h<hybrid_indiv[z][j].numHaps; h=h+2)
+	  {
+	    add_hap(hybrid_indiv[z][j].compHaps[h], haplist, nohaps, z);
+	    add_hap(hybrid_indiv[z][j].compHaps[h+1], haplist, nohaps, z);
+	  }    
   
 
   /* get intermarker distances in units of bps */
@@ -302,7 +311,7 @@ linepos=0;
   pr_summary(popAfileNm, popBfileNm, hybridfileNm, noChrom, no_loci, chr_names, popA_noIndivs, popB_noIndivs, pophybrid_noIndivs, marker_positions);
 
   /* debugging likelihoods */
-  printf("Indiv     Ma                Mb                Mc\n");    
+  printf("Indiv     Ma                Md                Mc\n");    
    for(int i=0; i<noSamplesPophybrid; i++)
      {
        printf("%5d     %.5f",i,lik_a_d(i,hybrid_indiv,popB_hap_counts,haplist,nohaps,noSamplesPopB,noChrom));

@@ -47,9 +47,9 @@ void compatible_haps(unsigned int *hapvec, unsigned int genotype1, unsigned int 
 	}
       else
 	{
-	  /* if((mask << j) & genotype1)  */
-	  /*   for(int i=0;i<hapNo;i++)  */
-	  /*     hapvec[i] = (mask << j) ^ hapvec[i];  */
+	  if((mask << j) & genotype1)
+	    for(int i=0;i<hapNo;i++)
+	      hapvec[i] = (mask << j) ^ hapvec[i];
 	}
     }
 }
@@ -61,10 +61,10 @@ int main(int argc, char *argv[])
 {
    struct indiv sampleInd;
    sampleInd.compHaps = calloc(MAXHAPS,sizeof(unsigned int));
-   sampleInd.genotype1 = 3;
-   sampleInd.genotype2 = 0;
+   sampleInd.genotype1 = 9;
+   sampleInd.genotype2 = 14;
    compatible_haps(sampleInd.compHaps, sampleInd.genotype1, sampleInd.genotype2);
-   sampleInd.numHaps = count_haplotypes(1, 0, 2);
+   sampleInd.numHaps = count_haplotypes(sampleInd.genotype1, sampleInd.genotype2, 4);
    printf("hcount: %d\n",sampleInd.numHaps);
    for(int i=0; i<sampleInd.numHaps; i++)
      printf("hap: %d is %u\n",i,sampleInd.compHaps[i]);

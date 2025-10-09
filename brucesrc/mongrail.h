@@ -58,3 +58,5 @@ unsigned int binaryToDecimal(const char *binaryStr);
 void prn_binary(unsigned int x, int noloci);
 unsigned int intpow(unsigned int base, unsigned int exponent);
 unsigned int get_anc_complement(unsigned int ancvec,int noloci);
+double kahanSum(double arr[], int n);
+double max_element(double arr[], int n);
