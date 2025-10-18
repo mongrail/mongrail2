@@ -18,8 +18,8 @@ double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_count
   for(int i=0; i<noChr; i++)
     {
       probL = 0.0;
-      /* for(int k=0; k<hybrid_indiv[i][indivIndex].numHaps; k=k+2) */
-      for(int k=hybrid_indiv[i][indivIndex].numHaps-1; k>=0; k=k-2)
+      for(int k=0; k<hybrid_indiv[i][indivIndex].numHaps; k=k+2)
+      /* for(int k=hybrid_indiv[i][indivIndex].numHaps-1; k>=0; k=k-2) */
 	{
 	  hap1 = hybrid_indiv[i][indivIndex].compHaps[k];
 	  hap2 = hybrid_indiv[i][indivIndex].compHaps[k+1];
@@ -96,13 +96,14 @@ double lik_c(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts,
 	  p1B = exp(lgt1B - t2B - lgt2B + t4h1B);
 	  p2A = exp(lgt1A - t2A - lgt2A + t4h2A);
 	  p2B = exp(lgt1B - t2B - lgt2B + t4h2B);
-	  probV[k] = identity2_hap(hap1, hap2)*(p1A*p2B+p2A*p1B)+(1 - identity2_hap(hap1, hap2))*(p1A*p2B);
+	  probV[k/2] = identity2_hap(hap1, hap2)*(p1A*p2B+p2A*p1B)+(1 - identity2_hap(hap1, hap2))*(p1A*p2B);
 	  /* probL += identity2_hap(hap1, hap2)*(p1A*p2B+p2A*p1B)+(1 - identity2_hap(hap1, hap2))*(p1A*p2B);  */
 	}
       norm_factor = max_element(probV,hybrid_indiv[i][indivIndex].numHaps);
-      printf("norm_factor: %f\n",norm_factor);
+      /*  printf("\n norm_factor: %f\n",norm_factor); */
       for(int a=0; a<hybrid_indiv[i][indivIndex].numHaps; a++)
 	probV[a]=probV[a]*(1.0/(2.0*norm_factor));
+						    
       probL = kahanSum(probV, hybrid_indiv[i][indivIndex].numHaps)*2.0*norm_factor;
       logL += log(probL);
     }
