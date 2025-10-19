@@ -7,6 +7,7 @@ double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_count
 {
   unsigned int hap1, hap2;
   int phi = 0;
+  double norm_factor;
   double logL = 0.0;
   double probL = 0.0;
   double *probV = (double *) malloc(MAXHAPS*sizeof(double));
@@ -34,9 +35,15 @@ double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_count
 	  probV[k/2] = exp(t1 + t3 - t4 + t5);
 	  /* probL += exp(t1 + t3 - t4 + t5); */
 	}
+      norm_factor = max_element(probV,hybrid_indiv[i][indivIndex].numHaps/2);
       for(int a=0; a<hybrid_indiv[i][indivIndex].numHaps/2; a++)
-	probL += probV[a];
-      logL += log(probL);
+	probV[a]=exp(log(probV[a])-log(2.0)-log(norm_factor));
+      probL = log(kahanSum(probV, hybrid_indiv[i][indivIndex].numHaps/2))+log(2.0)+log(norm_factor);
+      logL += probL;
+ 
+      /* for(int a=0; a<hybrid_indiv[i][indivIndex].numHaps/2; a++) */
+      /* 	probL += probV[a]; */
+      /* logL += log(probL); */
     }
   free(probV);
   return logL;
@@ -101,10 +108,10 @@ double lik_c(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts,
       norm_factor = max_element(probV,hybrid_indiv[i][indivIndex].numHaps/2);
       /*  printf("\n norm_factor: %f\n",norm_factor); */
       for(int a=0; a<hybrid_indiv[i][indivIndex].numHaps/2; a++)
-	probV[a]=probV[a]*(1.0/(2.0*norm_factor));
+	probV[a]=exp(log(probV[a])-log(2.0)-log(norm_factor));
 						    
-      probL = kahanSum(probV, hybrid_indiv[i][indivIndex].numHaps/2)*2.0*norm_factor;
-      logL += log(probL);
+      probL = log(kahanSum(probV, hybrid_indiv[i][indivIndex].numHaps/2))+log(2.0)+log(norm_factor);
+      logL += probL;
     }
   return logL;
 }
