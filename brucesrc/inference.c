@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* likelihood for models a and d */
 double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_counts, unsigned int** haplist, int* no_haps, int noSamplesPopY, int noChr)
 {
   unsigned int hap1, hap2;
@@ -20,7 +21,6 @@ double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_count
     {
       probL = 0.0;
       for(int k=0; k<hybrid_indiv[i][indivIndex].numHaps; k=k+2)
-      /* for(int k=hybrid_indiv[i][indivIndex].numHaps-1; k>=0; k=k-2) */
 	{
 	  hap1 = hybrid_indiv[i][indivIndex].compHaps[k];
 	  hap2 = hybrid_indiv[i][indivIndex].compHaps[k+1];
@@ -30,25 +30,23 @@ double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_count
 	  for(int j=0; j<no_haps[i]; j++)
 	    {
 	      phi = identity1_hap(haplist[i][j], hap1) + identity1_hap(haplist[i][j], hap2);
-	      t5 += gammln(phi + popY_hap_counts[i][haplist[i][j]] + 1.0/no_haps[i]) - gammln(popY_hap_counts[i][haplist[i][j]]+1.0/no_haps[i]);
+	      t5 += gammln(phi + popY_hap_counts[i][haplist[i][j]] + 1.0/no_haps[i]) -
+		gammln(popY_hap_counts[i][haplist[i][j]]+1.0/no_haps[i]);
 	    }
 	  probV[k/2] = exp(t1 + t3 - t4 + t5);
-	  /* probL += exp(t1 + t3 - t4 + t5); */
 	}
+      /* normalize probabilities to avoid underflow */
       norm_factor = max_element(probV,hybrid_indiv[i][indivIndex].numHaps/2);
       for(int a=0; a<hybrid_indiv[i][indivIndex].numHaps/2; a++)
 	probV[a]=exp(log(probV[a])-log(2.0)-log(norm_factor));
       probL = log(kahanSum(probV, hybrid_indiv[i][indivIndex].numHaps/2))+log(2.0)+log(norm_factor);
       logL += probL;
- 
-      /* for(int a=0; a<hybrid_indiv[i][indivIndex].numHaps/2; a++) */
-      /* 	probL += probV[a]; */
-      /* logL += log(probL); */
     }
   free(probV);
   return logL;
 }
 
+/* likelihood for model c */
 double lik_c(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts, int** popA_hap_counts,
 	     unsigned int** haplist, int* no_haps, int noSamplesPopB,  int noSamplesPopA, int noChr)
 {
@@ -73,7 +71,6 @@ double lik_c(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts,
     {
       probL = 0.0;
       for(int k=0; k<hybrid_indiv[i][indivIndex].numHaps; k=k+2) 
-	/* for(int k=hybrid_indiv[i][indivIndex].numHaps-1; k>=0; k=k-2) */
 	{
 	  hap1 = hybrid_indiv[i][indivIndex].compHaps[k];
 	  hap2 = hybrid_indiv[i][indivIndex].compHaps[k+1];
@@ -103,19 +100,18 @@ double lik_c(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts,
 	  p2A = exp(lgt1A - t2A - lgt2A + t4h2A);
 	  p2B = exp(lgt1B - t2B - lgt2B + t4h2B);
 	  probV[k/2] = identity2_hap(hap1, hap2)*(p1A*p2B+p2A*p1B)+(1 - identity2_hap(hap1, hap2))*(p1A*p2B);
-	  /* probL += identity2_hap(hap1, hap2)*(p1A*p2B+p2A*p1B)+(1 - identity2_hap(hap1, hap2))*(p1A*p2B);  */
 	}
       norm_factor = max_element(probV,hybrid_indiv[i][indivIndex].numHaps/2);
-      /*  printf("\n norm_factor: %f\n",norm_factor); */
+      /* normalize probabilities to avoid underflow */
       for(int a=0; a<hybrid_indiv[i][indivIndex].numHaps/2; a++)
 	probV[a]=exp(log(probV[a])-log(2.0)-log(norm_factor));
-						    
       probL = log(kahanSum(probV, hybrid_indiv[i][indivIndex].numHaps/2))+log(2.0)+log(norm_factor);
       logL += probL;
     }
   return logL;
 }
 
+/* likelihood for models b and e */
 double lik_b_e(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts, int** popA_hap_counts,
 	       unsigned int** haplist, int* no_haps, int noSamplesPopB,  int noSamplesPopA, int noChr, char model)
 {
@@ -193,7 +189,7 @@ double lik_b_e(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_count
   return 0.0;
 }
 
-// Function to perform Kahan summation
+/* Kahan summation avoids numerical error */
 double kahanSum(double arr[], int n) {
     double sum = 0.0;
     double c = 0.0; // A running compensation for lost low-order bits
@@ -207,6 +203,7 @@ double kahanSum(double arr[], int n) {
     return sum;
 }
 
+/* find maximum element in an array */
 double max_element(double arr[], int n)
 {
   double currmax=0.0;
@@ -215,6 +212,7 @@ double max_element(double arr[], int n)
   return(currmax);
 }
 
+/* add haplotype to haplotype list if not already present */
 void add_hap(unsigned int hap, unsigned int** haplist, int* no_haps, int chrom)
 {
   int hap_found = 0;
@@ -241,6 +239,7 @@ void add_hap(unsigned int hap, unsigned int** haplist, int* no_haps, int chrom)
     }
 }
 
+/* add haplotype to local haplotype list if not already present */
 void add_hap_lcopy(unsigned int hap, unsigned int* hlist, int* nhaps)
 {
   int hap_found = 0;
@@ -267,6 +266,7 @@ void add_hap_lcopy(unsigned int hap, unsigned int* hlist, int* nhaps)
     }
 }
 
+/* check if two haplotypes are different */
 int identity2_hap(unsigned int hap1, unsigned int hap2)
 {
   if(hap1==hap2)
@@ -275,6 +275,7 @@ int identity2_hap(unsigned int hap1, unsigned int hap2)
     return 1;
 }
 
+/* check if two haplotypes are identical */
 int identity1_hap(unsigned int hap1, unsigned int hap2)
 {
   if(hap1==hap2)
@@ -283,6 +284,7 @@ int identity1_hap(unsigned int hap1, unsigned int hap2)
     return 0;
 }
 
+/* check if sub-haplotypes match given ancestry vector */
 int match_sub_hap(unsigned int hyb_hap, unsigned int pop_hap, unsigned int ancvec)
 {
   if((hyb_hap & ancvec)==(pop_hap & ancvec))
@@ -291,6 +293,7 @@ int match_sub_hap(unsigned int hyb_hap, unsigned int pop_hap, unsigned int ancve
     return 0;
 }
 
+/* get marginal haplotype counts */
 int get_marginal_hap_counts(unsigned int hyb_hap, int population, unsigned int ancvec, int** popY_hap_counts, unsigned int** haplist, int* no_haps, int chrom)
 {
   int mhcount=0;
@@ -300,18 +303,20 @@ int get_marginal_hap_counts(unsigned int hyb_hap, int population, unsigned int a
   return mhcount;
 }
 
+/* get complement of ancestry vector */
 unsigned int get_anc_complement(unsigned int ancvec,int noloci)
 {
   unsigned int cav = ~ancvec; 
   return cav - intpow(2,32) + intpow(2,noloci);;
 }
 
-
+/* probability of switching populations */
 double prPopSwitch(double r, unsigned long d)
 {
   return 1.0 - cosh(r*d)*exp(-r*d); 
 }
 
+/* probability of ancestry configuration */
 double prQ(unsigned int anc, int noloci, double rec_rate_bp, unsigned long* position)
 {
   double t1 = 0.0;
