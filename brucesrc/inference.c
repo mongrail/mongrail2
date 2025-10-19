@@ -10,7 +10,7 @@ double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_count
   double logL = 0.0;
   double probL = 0.0;
   double *probV = (double *) malloc(MAXHAPS*sizeof(double));
-  double t1, t2, t3, t4, t5;
+  double t1, t3, t4, t5;
   double thetaB = 1.0 + 2.0*noSamplesPopY;
   double l2 = log(2.0);
   t1 = gammln(thetaB);
@@ -25,18 +25,17 @@ double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_count
 	  hap2 = hybrid_indiv[i][indivIndex].compHaps[k+1];
 	  /* likelihood calculations */
 	  t3 = identity2_hap(hap1, hap2)*l2; 
-	  t2=0.0;
 	  t5=0.0;
 	  for(int j=0; j<no_haps[i]; j++)
 	    {
 	      phi = identity1_hap(haplist[i][j], hap1) + identity1_hap(haplist[i][j], hap2);
 	      t5 += gammln(phi + popY_hap_counts[i][haplist[i][j]] + 1.0/no_haps[i]) - gammln(popY_hap_counts[i][haplist[i][j]]+1.0/no_haps[i]);
 	    }
-	  probV[k] = exp(t1 + t3 - t4 + t5);
+	  probV[k/2] = exp(t1 + t3 - t4 + t5);
 	  /* probL += exp(t1 + t3 - t4 + t5); */
 	}
-      for(int k=hybrid_indiv[i][indivIndex].numHaps-1; k>=0; k=k-2)
-	  probL += probV[k];
+      for(int a=0; a<hybrid_indiv[i][indivIndex].numHaps/2; a++)
+	probL += probV[a];
       logL += log(probL);
     }
   free(probV);
@@ -99,12 +98,12 @@ double lik_c(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts,
 	  probV[k/2] = identity2_hap(hap1, hap2)*(p1A*p2B+p2A*p1B)+(1 - identity2_hap(hap1, hap2))*(p1A*p2B);
 	  /* probL += identity2_hap(hap1, hap2)*(p1A*p2B+p2A*p1B)+(1 - identity2_hap(hap1, hap2))*(p1A*p2B);  */
 	}
-      norm_factor = max_element(probV,hybrid_indiv[i][indivIndex].numHaps);
+      norm_factor = max_element(probV,hybrid_indiv[i][indivIndex].numHaps/2);
       /*  printf("\n norm_factor: %f\n",norm_factor); */
-      for(int a=0; a<hybrid_indiv[i][indivIndex].numHaps; a++)
+      for(int a=0; a<hybrid_indiv[i][indivIndex].numHaps/2; a++)
 	probV[a]=probV[a]*(1.0/(2.0*norm_factor));
 						    
-      probL = kahanSum(probV, hybrid_indiv[i][indivIndex].numHaps)*2.0*norm_factor;
+      probL = kahanSum(probV, hybrid_indiv[i][indivIndex].numHaps/2)*2.0*norm_factor;
       logL += log(probL);
     }
   return logL;

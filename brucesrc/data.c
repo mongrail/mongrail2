@@ -187,6 +187,7 @@ unsigned int count_haplotypes(unsigned int hap1, unsigned int hap2, int noloci)
   hap1hap2 = hap1^hap2; /* 1 if 1^0 or 0^1, 0 otherwise */
   for (int i = 0; i < 32 && i < noloci; ++i)
     if (hap1hap2 >> i & 0x1) no1bits++; /* if ith bit of hap1hap2 = 1 is polymorphic */
+  if (no1bits == 0) return 2; /* if no polymorphic sites, only 2 haplotypes */
   return pow(2,no1bits); /* no haplotypes = 2^no1bits */
 }
 

@@ -311,11 +311,11 @@ linepos=0;
   pr_summary(popAfileNm, popBfileNm, hybridfileNm, noChrom, no_loci, chr_names, popA_noIndivs, popB_noIndivs, pophybrid_noIndivs, marker_positions);
 
   /* debugging likelihoods */
-  printf("Indiv     Ma                Md                Mc\n");    
+  printf("Indiv     Md                Ma                Mc\n");    
    for(int i=0; i<noSamplesPophybrid; i++)
      {
-       printf("%5d     %.5f",i,lik_a_d(i,hybrid_indiv,popB_hap_counts,haplist,nohaps,noSamplesPopB,noChrom));
-       printf("         %.5f",lik_a_d(i,hybrid_indiv,popA_hap_counts,haplist,nohaps,noSamplesPopA,noChrom));
+       printf("%5d      %.5f",i,lik_a_d(i,hybrid_indiv,popA_hap_counts,haplist,nohaps,noSamplesPopA,noChrom));
+       printf("         %.5f",lik_a_d(i,hybrid_indiv,popB_hap_counts,haplist,nohaps,noSamplesPopB,noChrom));
        printf("         %.5f\n",lik_c(i,hybrid_indiv,popB_hap_counts,popA_hap_counts,haplist,nohaps,noSamplesPopB,noSamplesPopA,noChrom));
      }
 
