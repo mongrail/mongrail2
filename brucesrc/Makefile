@@ -19,3 +19,5 @@ error.o: error.c mongrail.h
 clean:
 	rm -f mongrail2 mongrail.o algorithms.o data.o inference.o error.o
 
+tidy:
+	rm -f mongrail.o algorithms.o data.o inference.o error.o

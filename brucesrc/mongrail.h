@@ -19,6 +19,9 @@ struct indiv
   int numHaps;
 };
 
+enum modelType { MODEL_A, MODEL_B, MODEL_C, MODEL_D, MODEL_E, MODEL_F };
+
+
 int findstring (char strarray[MAXCHRNUM][MAXNAMESZ], char *strtarget, int len);
 unsigned int binaryToDecimal (const char *binaryStr);
 int countfilelines (char filename[]);
@@ -40,7 +43,7 @@ void compatible_haps(unsigned int *hapvec, unsigned int genotype1, unsigned int 
 void sortDiplotypes(struct indiv sampleInd);
 void pr_hapcounts(int** hap_counts, char chr_nm[MAXCHRNUM][MAXNAMESZ], int noChr);
 void pr_compatible_haps_hybrids(int noChrom, char chr_names[MAXCHRNUM][MAXNAMESZ], struct indiv** hybrid_indiv, int noSamplesPophybrid, int no_loci[MAXCHRNUM]);
-double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_counts, unsigned int** haplist, int* no_haps, int noSamplesPopY, int noChr);
+double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_counts, unsigned int** haplist, int* no_haps, int noSamplesPopY, int noChr, enum modelType model);
 double lik_c(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts, int** popA_hap_counts,
 	     unsigned int** haplist, int* no_haps, int noSamplesPopB,  int noSamplesPopA, int noChr);
 double lik_b_e(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts, int** popA_hap_counts,
@@ -60,3 +63,4 @@ unsigned int intpow(unsigned int base, unsigned int exponent);
 unsigned int get_anc_complement(unsigned int ancvec,int noloci);
 double kahanSum(double arr[], int n);
 double max_element(double arr[], int n);
+void init_likelihood_globals(int noSamplesPopA, int noSamplesPopB);
