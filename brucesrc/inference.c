@@ -122,6 +122,7 @@ double lik_b_e(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_count
   double probL = 0.0;
   double thetaA = 1.0 + 2.0*noSamplesPopA;
   double thetaB = 1.0 + 2.0*noSamplesPopB;
+  
   double lgt1A = gammln(thetaA);
   double lgt2A = gammln(1.0 + thetaA);
   double lgt1B = gammln(thetaB);
