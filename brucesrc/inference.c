@@ -116,8 +116,6 @@ double lik_b_e(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_count
 	       unsigned int** haplist, int* no_haps, int noSamplesPopB,  int noSamplesPopA, int noChr, char model)
 {
   unsigned int hap1, hap2;
-  int nhaps=0;
-  unsigned int* hlist;
   int phi1 = 0;
   int phi2 = 0;
   double logL = 0.0;
@@ -131,7 +129,6 @@ double lik_b_e(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_count
   double t2A, t2B;
   double t4h1A, t4h2A, t4h1B, t4h2B;
   double p1A, p1B, p2A, p2B;
-  hlist = (unsigned int *)malloc(MAXHAPS*sizeof(unsigned int)); 
   for(int i=0; i<noChr; i++)
     {
       probL = 0.0;
@@ -139,13 +136,6 @@ double lik_b_e(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_count
 	{
 	  hap1 = hybrid_indiv[i][indivIndex].compHaps[k];
 	  hap2 = hybrid_indiv[i][indivIndex].compHaps[k+1];
-	  /* create local copy of haplist */
-	  for(int h=0; h<no_haps[i]; h++)
-	    hlist[h] = haplist[i][h]; 
-	  nhaps = no_haps[i];
-	  /* add hybrid haplotypes */
-	  add_hap_lcopy(hap1,hlist,&nhaps);
-	  add_hap_lcopy(hap2,hlist,&nhaps);
 	  /* likelihood calculations */
 	  t2A = 0.0;
 	  t2B = 0.0;
@@ -158,19 +148,19 @@ double lik_b_e(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_count
 	  p2A = 0.0;
 	  p2B = 0.0;
 	  
-	  for(int j=0; j<nhaps; j++)
+	  for(int j=0; j<no_haps[i]; j++)
 	    {
-	      t2A += gammln(popA_hap_counts[i][hlist[j]]+1.0/nhaps);
-	      t2B += gammln(popB_hap_counts[i][hlist[j]]+1.0/nhaps);
+	      t2A += gammln(popA_hap_counts[i][haplist[i][j]]+1.0/no_haps[i]);
+	      t2B += gammln(popB_hap_counts[i][haplist[i][j]]+1.0/no_haps[i]);
 	    }
-	  for(int j=0; j<nhaps; j++)
+	  for(int j=0; j<no_haps[i]; j++)
 	    {
-	      phi1 = identity1_hap(hlist[j], hap1);
-	      phi2 = identity1_hap(hlist[j], hap2);
-	      t4h1A += gammln(phi1 + popA_hap_counts[i][hlist[j]] + 1.0/nhaps);
-	      t4h2A += gammln(phi2 + popA_hap_counts[i][hlist[j]] + 1.0/nhaps);
-	      t4h1B += gammln(phi1 + popB_hap_counts[i][hlist[j]] + 1.0/nhaps);
-	      t4h2B += gammln(phi2 + popB_hap_counts[i][hlist[j]] + 1.0/nhaps);
+	      phi1 = identity1_hap(haplist[i][j], hap1);
+	      phi2 = identity1_hap(haplist[i][j], hap2);
+	      t4h1A += gammln(phi1 + popA_hap_counts[i][haplist[i][j]] + 1.0/no_haps[i]);
+	      t4h2A += gammln(phi2 + popA_hap_counts[i][haplist[i][j]] + 1.0/no_haps[i]);
+	      t4h1B += gammln(phi1 + popB_hap_counts[i][haplist[i][j]] + 1.0/no_haps[i]);
+	      t4h2B += gammln(phi2 + popB_hap_counts[i][haplist[i][j]] + 1.0/no_haps[i]);
 	    }
 	  if(model=='a')
 	    {
