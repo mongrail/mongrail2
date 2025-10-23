@@ -136,28 +136,24 @@ double lik_c(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts,
       probL = log(kahanSum(probV, hybrid_indiv[i][indivIndex].numHaps/2))+log(2.0)+log(norm_factor);
       logL += probL;
     }
+  free(probV);
   return logL;
 }
 
 /* likelihood for models b and e */
 double lik_b_e(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts, int** popA_hap_counts,
-	       unsigned int** haplist, int* no_haps, int noSamplesPopB,  int noSamplesPopA, int noChr, char model)
+	       unsigned int** haplist, int* no_haps, int noSamplesPopB,  int noSamplesPopA, int noChr, enum modelType model)
 {
   unsigned int hap1, hap2;
   int phi1 = 0;
   int phi2 = 0;
   double logL = 0.0;
+  double norm_factor;
+  double *probV = (double *) malloc(MAXHAPS*sizeof(double));
   double probL = 0.0;
-  double thetaA = 1.0 + 2.0*noSamplesPopA;
-  double thetaB = 1.0 + 2.0*noSamplesPopB;
-  
-  double lgt1A = gammln(thetaA);
-  double lgt2A = gammln(1.0 + thetaA);
-  double lgt1B = gammln(thetaB);
-  double lgt2B = gammln(1.0 + thetaB);
   double t2A, t2B;
   double t4h1A, t4h2A, t4h1B, t4h2B;
-  double p1A, p1B, p2A, p2B;
+  double p1A, p1B, p2A, p2B, p1Rec, p2Rec;
   for(int i=0; i<noChr; i++)
     {
       probL = 0.0;
@@ -176,6 +172,8 @@ double lik_b_e(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_count
 	  p1B = 0.0;
 	  p2A = 0.0;
 	  p2B = 0.0;
+	  p1Rec = 0.0;
+	  p2Rec = 0.0;
 	  
 	  for(int j=0; j<no_haps[i]; j++)
 	    {
@@ -191,21 +189,34 @@ double lik_b_e(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_count
 	      t4h1B += gammln(phi1 + popB_hap_counts[i][haplist[i][j]] + 1.0/no_haps[i]);
 	      t4h2B += gammln(phi2 + popB_hap_counts[i][haplist[i][j]] + 1.0/no_haps[i]);
 	    }
-	  if(model=='a')
+	  if(model==MODEL_B)
 	    {
-	      p1A = exp(lgt1A - t2A - lgt2A + t4h1A);
-	      p2A = exp(lgt1A - t2A - lgt2A + t4h2A);
+	      p1A = exp(t1A - t2A - tc4A + t4h1A);
+	      p2A = exp(t1A - t2A - tc4A + t4h2A);
+	      if(identity2_hap(hap1, hap2)) /* haplotypes different */
+		  probV[k/2] = exp(log(p1A)+log(p2Rec))+exp(log(p2A)+log(p1Rec));
+	      else
+		  probV[k/2] = exp(log(p1A)+log(p2Rec));
 	    }
-	  else
+	  else if(model==MODEL_E)
 	    {
-	      p1B = exp(lgt1B - t2B - lgt2B + t4h1B);
-	      p2B = exp(lgt1B - t2B - lgt2B + t4h2B);
+	      p1B = exp(t1B - t2B - tc4B + t4h1B);
+	      p2B = exp(t1B - t2B - tc4B + t4h2B);
+	      if(identity2_hap(hap1, hap2)) /* haplotypes different */
+		  probV[k/2] = exp(log(p1B)+log(p2Rec))+exp(log(p2B)+log(p1Rec));
+	      else
+		  probV[k/2] = exp(log(p1B)+log(p2Rec));
 	    }
-	  probL += identity2_hap(hap1, hap2)*(p1A*p2B+p2A*p1B)+(1 - identity2_hap(hap1, hap2))*(p1A*p2B); 
 	}
-      logL += log(probL);
-    }
-  return 0.0;
+	  norm_factor = max_element(probV,hybrid_indiv[i][indivIndex].numHaps/2);
+	  /* normalize probabilities to avoid underflow */
+	  for(int a=0; a<hybrid_indiv[i][indivIndex].numHaps/2; a++)
+	    probV[a]=exp(log(probV[a])-log(2.0)-log(norm_factor));
+	  probL = log(kahanSum(probV, hybrid_indiv[i][indivIndex].numHaps/2))+log(2.0)+log(norm_factor);
+	  logL += probL;
+	}
+  free(probV);
+  return logL;
 }
 
 /* Kahan summation avoids numerical error */
