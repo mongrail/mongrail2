@@ -27,7 +27,8 @@ void init_likelihood_globals(int noSamplesPopA, int noSamplesPopB)
 }
 
 /* likelihood for models a and d */
-double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_counts, unsigned int** haplist, int* no_haps, int noSamplesPopY, int noChr, enum modelType model)
+double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_counts,
+	       unsigned int** haplist, int* no_haps, int noSamplesPopY, int noChr, enum modelType model)
 {
   unsigned int hap1, hap2;
   int phi = 0;
