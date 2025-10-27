@@ -4,31 +4,10 @@
 #include <stdlib.h>
 #include <assert.h>
 
-/* global variables for likelihood calculations */
-double t1A;
-double t1B;
-double t4A;
-double t4B;
-double tc4A;
-double tc4B;
-double l2;
-
-void init_likelihood_globals(int noSamplesPopA, int noSamplesPopB)
-{
-  double thetaB = 1.0 + 2.0*noSamplesPopB;
-  double thetaA = 1.0 + 2.0*noSamplesPopA;
-  t1A = gammln(thetaA);
-  t1B = gammln(thetaB);
-  t4A = gammln(thetaA + 2.0);
-  t4B = gammln(thetaB + 2.0);
-  tc4A = gammln(thetaA + 1.0);
-  tc4B = gammln(thetaB + 1.0);
-  l2 = log(2.0);
-}
-
 /* likelihood for models a and d */
 double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_counts,
-	       unsigned int** haplist, int* no_haps, int noSamplesPopY, int noChr, enum modelType model)
+	       unsigned int** haplist, int* no_haps, int noSamplesPopA,
+	       int noSamplesPopB, int noChr, enum modelType model)
 {
   unsigned int hap1, hap2;
   int phi = 0;
@@ -38,16 +17,15 @@ double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_count
   double *probV = (double *) malloc(MAXHAPS*sizeof(double));
   double t1, t3, t4, t5;
 
-
   if(model == MODEL_A)
     {
-      t1 = t1B;
-      t4 = t4B;
+      t1 = T1B;
+      t4 = T4B;
     }
   else
     {
-      t1 = t1A;
-      t4 = t4A;
+      t1 = T1A;
+      t4 = T4A;
     }
   assert(t1!=0.0); /* not MODEL_A or MODEL_D */
   
@@ -60,7 +38,7 @@ double lik_a_d(int indivIndex, struct indiv** hybrid_indiv, int** popY_hap_count
 	  hap1 = hybrid_indiv[i][indivIndex].compHaps[k];
 	  hap2 = hybrid_indiv[i][indivIndex].compHaps[k+1];
 	  /* likelihood calculations */
-	  t3 = identity2_hap(hap1, hap2)*l2; 
+	  t3 = identity2_hap(hap1, hap2)*L2; 
 	  t5=0.0;
 	  for(int j=0; j<no_haps[i]; j++)
 	    {
@@ -124,10 +102,10 @@ double lik_c(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_counts,
 	      t4h1B += gammln(phi1 + popB_hap_counts[i][haplist[i][j]] + 1.0/no_haps[i]);
 	      t4h2B += gammln(phi2 + popB_hap_counts[i][haplist[i][j]] + 1.0/no_haps[i]);
 	    }
-	  p1A = exp(t1A - t2A - tc4A + t4h1A);
-	  p1B = exp(t1B - t2B - tc4B + t4h1B);
-	  p2A = exp(t1A - t2A - tc4A + t4h2A);
-	  p2B = exp(t1B - t2B - tc4B + t4h2B);
+	  p1A = exp(T1A - t2A - TC4A + t4h1A);
+	  p1B = exp(T1B - t2B - TC4B + t4h1B);
+	  p2A = exp(T1A - t2A - TC4A + t4h2A);
+	  p2B = exp(T1B - t2B - TC4B + t4h2B);
 	  probV[k/2] = identity2_hap(hap1, hap2)*(p1A*p2B+p2A*p1B)+(1 - identity2_hap(hap1, hap2))*(p1A*p2B);
 	}
       norm_factor = max_element(probV,hybrid_indiv[i][indivIndex].numHaps/2);
@@ -192,8 +170,8 @@ double lik_b_e(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_count
 	    }
 	  if(model==MODEL_B)
 	    {
-	      p1A = exp(t1A - t2A - tc4A + t4h1A);
-	      p2A = exp(t1A - t2A - tc4A + t4h2A);
+	      p1A = exp(T1A - t2A - TC4A + t4h1A);
+	      p2A = exp(T1A - t2A - TC4A + t4h2A);
 	      if(identity2_hap(hap1, hap2)) /* haplotypes different */
 		  probV[k/2] = exp(log(p1A)+log(p2Rec))+exp(log(p2A)+log(p1Rec));
 	      else
@@ -201,8 +179,8 @@ double lik_b_e(int indivIndex, struct indiv** hybrid_indiv, int** popB_hap_count
 	    }
 	  else if(model==MODEL_E)
 	    {
-	      p1B = exp(t1B - t2B - tc4B + t4h1B);
-	      p2B = exp(t1B - t2B - tc4B + t4h2B);
+	      p1B = exp(T1B - t2B - TC4B + t4h1B);
+	      p2B = exp(T1B - t2B - TC4B + t4h2B);
 	      if(identity2_hap(hap1, hap2)) /* haplotypes different */
 		  probV[k/2] = exp(log(p1B)+log(p2Rec))+exp(log(p2B)+log(p1Rec));
 	      else
@@ -271,31 +249,31 @@ void add_hap(unsigned int hap, unsigned int** haplist, int* no_haps, int chrom)
 }
 
 /* add haplotype to local haplotype list if not already present */
-void add_hap_lcopy(unsigned int hap, unsigned int* hlist, int* nhaps)
-{
-  int hap_found = 0;
-  if(*nhaps == 0)
-    {
-      hlist[0] = hap;
-      *nhaps = 1;
-    }
-  else
-    {
-      for(int i=0; i < *nhaps; i++) 
-	{
-	  if(hlist[i] == hap)
-	    {
-	      hap_found = 1;
-	      break;
-	    }
-	}
-      if(hap_found == 0)
-	{
-	  hlist[*nhaps] = hap;
-	  *nhaps = *nhaps + 1;
-	}
-    }
-}
+/* void add_hap_lcopy(unsigned int hap, unsigned int* hlist, int* nhaps) */
+/* { */
+/*   int hap_found = 0; */
+/*   if(*nhaps == 0) */
+/*     { */
+/*       hlist[0] = hap; */
+/*       *nhaps = 1; */
+/*     } */
+/*   else */
+/*     { */
+/*       for(int i=0; i < *nhaps; i++)  */
+/* 	{ */
+/* 	  if(hlist[i] == hap) */
+/* 	    { */
+/* 	      hap_found = 1; */
+/* 	      break; */
+/* 	    } */
+/* 	} */
+/*       if(hap_found == 0) */
+/* 	{ */
+/* 	  hlist[*nhaps] = hap; */
+/* 	  *nhaps = *nhaps + 1; */
+/* 	} */
+/*     } */
+/* } */
 
 /* check if two haplotypes are different */
 int identity2_hap(unsigned int hap1, unsigned int hap2)

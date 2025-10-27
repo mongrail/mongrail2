@@ -5,7 +5,207 @@
 #include <math.h>
 #include "mongrail.h"
 
+extern int verbose;
   
+void readDataFiles(char popAfileNm[], char popBfileNm[], char hybridfileNm[],
+		   int* noSamplesPopA, int* noSamplesPopB, int* noSamplesPophybrid,
+		   int* noChrom, char chr_names[MAXCHRNUM][MAXNAMESZ], int no_loci[MAXCHRNUM],
+		   unsigned long** marker_positions, unsigned int** popA_haplotypes,
+		   unsigned int** popB_haplotypes,unsigned int** hybrid_haplotypes)
+{
+
+  char** raw_data_popA = NULL; 
+  char** raw_data_popB = NULL;
+  char** raw_data_hybrids = NULL;
+  struct genotype*** popA_genotypes = NULL;
+  struct genotype*** popB_genotypes = NULL;
+  struct genotype*** pophybrid_genotypes = NULL;
+  int** popA_noIndivs = NULL;
+  int** popB_noIndivs = NULL;
+  int** pophybrid_noIndivs = NULL;
+
+  /* total number of lines in popA.GT */ 
+  int no_file_lines = countfilelines(popAfileNm);
+
+  /* error checking: # lines equals # loci. Must be equal in popA.GT, popB.GT and hybrids.GT */
+  err_line_n(popAfileNm, popBfileNm, hybridfileNm);
+
+  int linepos=0;
+
+  /* read popA data */
+  raw_data_popA = (char**)malloc(no_file_lines*sizeof(char *));
+  file_to_array(raw_data_popA, popAfileNm);
+ 
+  
+  /* read popB data */
+  raw_data_popB = (char**)malloc(no_file_lines*sizeof(char *));
+  file_to_array(raw_data_popB, popBfileNm);
+ 
+
+  /* read hybrid data */
+  raw_data_hybrids = (char**)malloc(no_file_lines*sizeof(char *));
+  file_to_array(raw_data_hybrids, hybridfileNm);
+ 
+
+  /* make chromosome list and get number of loci per chromosome */
+  *noChrom = mk_chrom_list(raw_data_popA, chr_names, no_loci, no_file_lines);
+
+  /* get marker positions for each chromosome */
+  marker_positions = (unsigned long**)malloc(*noChrom*sizeof(unsigned long *));
+  for(int i=0; i<*noChrom; i++)
+    marker_positions[i] = (unsigned long*)malloc(no_loci[i]*sizeof(unsigned long));
+  
+  get_positions(*noChrom, no_loci, raw_data_popA, marker_positions);
+
+  /* get individual genotypes for each population sample and counts of individuals */
+  
+  popA_genotypes = (struct genotype***)malloc(*noChrom*sizeof(struct genotype *));
+  for(int i=0; i<*noChrom; i++)
+    {
+      popA_genotypes[i] = (struct genotype**)malloc(no_loci[i]*sizeof(struct genotype *));
+      for(int j=0; j<no_loci[i]; j++)
+	popA_genotypes[i][j] = (struct genotype*)malloc(MAXINDIV*sizeof(struct genotype ));
+	
+    }
+
+  popB_genotypes = (struct genotype***)malloc(*noChrom*sizeof(struct genotype *));
+  for(int i=0; i<*noChrom; i++)
+    {
+      popB_genotypes[i] = (struct genotype**)malloc(no_loci[i]*sizeof(struct genotype *));
+      for(int j=0; j<no_loci[i]; j++)
+	popB_genotypes[i][j] = (struct genotype*)malloc(MAXINDIV*sizeof(struct genotype ));
+	
+    }
+  
+  pophybrid_genotypes = (struct genotype***)malloc(*noChrom*sizeof(struct genotype *));
+  for(int i=0; i<*noChrom; i++)
+    {
+      pophybrid_genotypes[i] = (struct genotype**)malloc(no_loci[i]*sizeof(struct genotype *));
+      for(int j=0; j<no_loci[i]; j++)
+	pophybrid_genotypes[i][j] = (struct genotype*)malloc(MAXINDIV*sizeof(struct genotype ));
+	
+    }
+
+  /* get number of individuals sampled in pop A and B and putative hybrids */
+  /* collect individual genotypes for each chromosome and locus */
+  
+  popA_noIndivs = (int**)malloc(*noChrom*sizeof(int *));
+  for(int i=0; i<*noChrom; i++)
+    popA_noIndivs[i] = (int*)malloc(no_loci[i]*sizeof(int));
+
+  popB_noIndivs = (int**)malloc(*noChrom*sizeof(int *));
+  for(int i=0; i<*noChrom; i++)
+    popB_noIndivs[i] = (int*)malloc(no_loci[i]*sizeof(int));
+
+   pophybrid_noIndivs = (int**)malloc(*noChrom*sizeof(int *));
+  for(int i=0; i<*noChrom; i++)
+    pophybrid_noIndivs[i] = (int*)malloc(no_loci[i]*sizeof(int));
+
+  linepos=0;
+  for(int i=0; i<*noChrom; i++)
+    for(int j=0; j<no_loci[i]; j++)
+    {
+      if(i==0)
+	linepos=j;
+      else
+	{
+	  linepos = 0;
+	  for(int k=0; k<i; k++)
+	    linepos += no_loci[k];
+	  linepos+=j;
+	}
+      popA_noIndivs[i][j] = get_genotypes(raw_data_popA[linepos],popA_genotypes[i][j]);
+    }
+  *noSamplesPopA = popA_noIndivs[0][0];
+
+ linepos=0;
+  for(int i=0; i<*noChrom; i++)
+    for(int j=0; j<no_loci[i]; j++)
+    {
+      if(i==0)
+	linepos=j;
+      else
+	{
+	  linepos = 0;
+	  for(int k=0; k<i; k++)
+	    linepos += no_loci[k];
+	  linepos+=j;
+	}
+      popB_noIndivs[i][j] = get_genotypes(raw_data_popB[linepos],popB_genotypes[i][j]);
+    }
+  *noSamplesPopB = popB_noIndivs[0][0];
+
+linepos=0;
+  for(int i=0; i<*noChrom; i++)
+    for(int j=0; j<no_loci[i]; j++)
+    {
+      if(i==0)
+	linepos=j;
+      else
+	{
+	  linepos = 0;
+	  for(int k=0; k<i; k++)
+	    linepos += no_loci[k];
+	  linepos+=j;
+	}
+      pophybrid_noIndivs[i][j] = get_genotypes(raw_data_hybrids[linepos],pophybrid_genotypes[i][j]);
+    }
+  *noSamplesPophybrid = pophybrid_noIndivs[0][0];
+
+  /* get sampled population haplotypes as unsigned ints */
+  /* number of haplotypes = 2 * number of individuals sampled */
+  
+  popA_haplotypes = (unsigned int **)malloc(*noChrom*sizeof(unsigned int *));
+  for(int i=0; i<*noChrom; i++)
+    popA_haplotypes[i] = (unsigned int *)malloc(*noSamplesPopA*2*sizeof(unsigned int));
+  get_haplotypes(popA_haplotypes,popA_genotypes,*noChrom,*noSamplesPopA,no_loci);
+
+  popB_haplotypes = (unsigned int **)malloc(*noChrom*sizeof(unsigned int *));
+  for(int i=0; i<*noChrom; i++)
+    popB_haplotypes[i] = (unsigned int *)malloc(*noSamplesPopB*2*sizeof(unsigned int));
+  get_haplotypes(popB_haplotypes,popB_genotypes,*noChrom,*noSamplesPopB,no_loci);
+
+  hybrid_haplotypes = (unsigned int **)malloc(*noChrom*sizeof(unsigned int *));
+  for(int i=0; i<*noChrom; i++)
+    hybrid_haplotypes[i] = (unsigned int *)malloc(*noSamplesPophybrid*2*sizeof(unsigned int));
+  get_haplotypes(hybrid_haplotypes,pophybrid_genotypes,*noChrom,*noSamplesPophybrid,no_loci);
+
+  /* printing information to screen */
+
+  pr_summary(popAfileNm, popBfileNm, hybridfileNm, *noChrom, no_loci, chr_names,
+	     popA_noIndivs, popB_noIndivs, pophybrid_noIndivs, marker_positions);
+
+
+  /* optional information printing to screen for debugging */
+  
+  if(verbose==1)
+    {
+      pr_haplotypes(*noChrom, chr_names, popA_haplotypes, popB_haplotypes, *noSamplesPopA, *noSamplesPopB);
+    }
+  if(verbose==2)
+    {
+      pr_datastats(*noChrom, chr_names, marker_positions, popA_noIndivs, popB_noIndivs, pophybrid_noIndivs,no_loci);
+    }
+  if(verbose==3)
+    {
+      pr_chr_SNP_stats(*noChrom, chr_names,no_loci, marker_positions);
+      
+    }
+
+  /* free allocated memory */
+  
+  free(raw_data_popA);
+  free(raw_data_popB);
+  free(raw_data_hybrids);
+ /*  free(popA_genotypes); */
+/*   free(popB_genotypes); */
+/*   free(pophybrid_genotypes); */
+/*   free(popA_noIndivs); */
+/*   free(popB_noIndivs); */
+/*   free(pophybrid_noIndivs); */
+ } 
+  
+
 
 int findstring(char strarray[MAXCHRNUM][MAXNAMESZ], char *strtarget, int len)
 {
