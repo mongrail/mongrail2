@@ -5,7 +5,7 @@
 #include <math.h>
 #include "mongrail.h"
 
-int verbose=1;
+int verbose=4;
 
 int main(int argc, char *argv[])
 {
@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
   
   pr_progname();
   readDataFiles(popAfileNm, popBfileNm, hybridfileNm, &noSamplesPopA, &noSamplesPopB, &noSamplesPophybrid,
-		&noChrom, chr_names, no_loci, marker_positions, popA_haplotypes, popB_haplotypes,hybrid_haplotypes);
+		&noChrom, chr_names, no_loci, marker_positions, &popA_haplotypes, &popB_haplotypes, &hybrid_haplotypes);
 
   /* summarize pop samples as haplotype counts in array of length MAXHAPS with base_10 haplotype as array index */ 
   

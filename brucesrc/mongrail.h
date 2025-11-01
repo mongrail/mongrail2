@@ -1,4 +1,4 @@
-#define VERSION "2.0"
+ #define VERSION "2.0"
 
 #define MAXINDIV 1000
 #define MAXLINESZ 100000
@@ -76,5 +76,6 @@ void init_likelihood_globals(int, int);
 void readDataFiles(char popAfileNm[], char popBfileNm[], char hybridfileNm[],
 		   int* noSamplesPopA, int* noSamplesPopB, int* noSamplesPophybrid,
 		   int* noChrom, char chr_names[MAXCHRNUM][MAXNAMESZ], int no_loci[MAXCHRNUM],
-		   unsigned long** marker_positions, unsigned int** popA_haplotypes,
-		   unsigned int** popB_haplotypes,unsigned int** hybrid_haplotypes);
+		   unsigned long** marker_positions, unsigned int*** popA_haplotypes,
+		   unsigned int*** popB_haplotypes, unsigned int*** hybrid_haplotypes);
+

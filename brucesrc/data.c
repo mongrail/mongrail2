@@ -10,8 +10,8 @@ extern int verbose;
 void readDataFiles(char popAfileNm[], char popBfileNm[], char hybridfileNm[],
 		   int* noSamplesPopA, int* noSamplesPopB, int* noSamplesPophybrid,
 		   int* noChrom, char chr_names[MAXCHRNUM][MAXNAMESZ], int no_loci[MAXCHRNUM],
-		   unsigned long** marker_positions, unsigned int** popA_haplotypes,
-		   unsigned int** popB_haplotypes,unsigned int** hybrid_haplotypes)
+		   unsigned long** marker_positions, unsigned int*** popA_haplotypes,
+		   unsigned int*** popB_haplotypes, unsigned int*** hybrid_haplotypes)
 {
 
   char** raw_data_popA = NULL; 
@@ -155,20 +155,20 @@ linepos=0;
   /* get sampled population haplotypes as unsigned ints */
   /* number of haplotypes = 2 * number of individuals sampled */
   
-  popA_haplotypes = (unsigned int **)malloc(*noChrom*sizeof(unsigned int *));
+  *popA_haplotypes = (unsigned int **)malloc(*noChrom*sizeof(unsigned int *));
   for(int i=0; i<*noChrom; i++)
-    popA_haplotypes[i] = (unsigned int *)malloc(*noSamplesPopA*2*sizeof(unsigned int));
-  get_haplotypes(popA_haplotypes,popA_genotypes,*noChrom,*noSamplesPopA,no_loci);
+    (*popA_haplotypes)[i] = (unsigned int *)malloc(*noSamplesPopA*2*sizeof(unsigned int));
+  get_haplotypes(*popA_haplotypes,popA_genotypes,*noChrom,*noSamplesPopA,no_loci);
 
-  popB_haplotypes = (unsigned int **)malloc(*noChrom*sizeof(unsigned int *));
+  *popB_haplotypes = (unsigned int **)malloc(*noChrom*sizeof(unsigned int *));
   for(int i=0; i<*noChrom; i++)
-    popB_haplotypes[i] = (unsigned int *)malloc(*noSamplesPopB*2*sizeof(unsigned int));
-  get_haplotypes(popB_haplotypes,popB_genotypes,*noChrom,*noSamplesPopB,no_loci);
+    (*popB_haplotypes)[i] = (unsigned int *)malloc(*noSamplesPopB*2*sizeof(unsigned int));
+  get_haplotypes(*popB_haplotypes,popB_genotypes,*noChrom,*noSamplesPopB,no_loci);
 
-  hybrid_haplotypes = (unsigned int **)malloc(*noChrom*sizeof(unsigned int *));
+  *hybrid_haplotypes = (unsigned int **)malloc(*noChrom*sizeof(unsigned int *));
   for(int i=0; i<*noChrom; i++)
-    hybrid_haplotypes[i] = (unsigned int *)malloc(*noSamplesPophybrid*2*sizeof(unsigned int));
-  get_haplotypes(hybrid_haplotypes,pophybrid_genotypes,*noChrom,*noSamplesPophybrid,no_loci);
+    (*hybrid_haplotypes)[i] = (unsigned int *)malloc(*noSamplesPophybrid*2*sizeof(unsigned int));
+  get_haplotypes(*hybrid_haplotypes,pophybrid_genotypes,*noChrom,*noSamplesPophybrid,no_loci);
 
   /* printing information to screen */
 
@@ -180,7 +180,7 @@ linepos=0;
   
   if(verbose==1)
     {
-      pr_haplotypes(*noChrom, chr_names, popA_haplotypes, popB_haplotypes, *noSamplesPopA, *noSamplesPopB);
+      pr_haplotypes(*noChrom, chr_names, *popA_haplotypes, *popB_haplotypes, *noSamplesPopA, *noSamplesPopB);
     }
   if(verbose==2)
     {
@@ -342,6 +342,7 @@ void get_haplotypes(unsigned int** haplotypes, struct genotype*** gdata, int nCh
 	  }
 	hapstring_g1[nloci[i]]='\0';
 	hapstring_g2[nloci[i]]='\0';
+	/* array places all g1 haplotypes first, then g2 haplotypes */
 	haplotypes[i][j]=binaryToDecimal(hapstring_g1);
 	haplotypes[i][j+noInd]=binaryToDecimal(hapstring_g2);
       }
