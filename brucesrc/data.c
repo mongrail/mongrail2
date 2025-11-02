@@ -13,13 +13,18 @@ void readDataFiles(char popAfileNm[], char popBfileNm[], char hybridfileNm[],
 		   unsigned long** marker_positions, unsigned int*** popA_haplotypes,
 		   unsigned int*** popB_haplotypes, unsigned int*** hybrid_haplotypes)
 {
-
+  /* matrix in which each row is a line from the input files for population A, B or hybrid */
   char** raw_data_popA = NULL; 
   char** raw_data_popB = NULL;
   char** raw_data_hybrids = NULL;
+
+  /* genotype data structures for each population and putative hybrids. */
+  /* Tensor of chromosomes, loci and individuals */
   struct genotype*** popA_genotypes = NULL;
   struct genotype*** popB_genotypes = NULL;
   struct genotype*** pophybrid_genotypes = NULL;
+
+  /* number of individuals sampled per locus per chromosome for each population and putative hybrids */
   int** popA_noIndivs = NULL;
   int** popB_noIndivs = NULL;
   int** pophybrid_noIndivs = NULL;
@@ -29,8 +34,6 @@ void readDataFiles(char popAfileNm[], char popBfileNm[], char hybridfileNm[],
 
   /* error checking: # lines equals # loci. Must be equal in popA.GT, popB.GT and hybrids.GT */
   err_line_n(popAfileNm, popBfileNm, hybridfileNm);
-
-  int linepos=0;
 
   /* read popA data */
   raw_data_popA = (char**)malloc(no_file_lines*sizeof(char *));
@@ -47,61 +50,53 @@ void readDataFiles(char popAfileNm[], char popBfileNm[], char hybridfileNm[],
   file_to_array(raw_data_hybrids, hybridfileNm);
  
 
-  /* make chromosome list and get number of loci per chromosome */
+  /* get chromosome list, number of loci per chromosome and number of chromosomes */
   *noChrom = mk_chrom_list(raw_data_popA, chr_names, no_loci, no_file_lines);
 
-  /* get marker positions for each chromosome */
+  /* allocate memory for marker positions */
   marker_positions = (unsigned long**)malloc(*noChrom*sizeof(unsigned long *));
   for(int i=0; i<*noChrom; i++)
     marker_positions[i] = (unsigned long*)malloc(no_loci[i]*sizeof(unsigned long));
   
+  /* get marker positions for each chromosome */  
   get_positions(*noChrom, no_loci, raw_data_popA, marker_positions);
 
-  /* get individual genotypes for each population sample and counts of individuals */
-  
+  /* allocate memory for genotype data structures */
   popA_genotypes = (struct genotype***)malloc(*noChrom*sizeof(struct genotype *));
   for(int i=0; i<*noChrom; i++)
     {
       popA_genotypes[i] = (struct genotype**)malloc(no_loci[i]*sizeof(struct genotype *));
       for(int j=0; j<no_loci[i]; j++)
 	popA_genotypes[i][j] = (struct genotype*)malloc(MAXINDIV*sizeof(struct genotype ));
-	
     }
-
   popB_genotypes = (struct genotype***)malloc(*noChrom*sizeof(struct genotype *));
   for(int i=0; i<*noChrom; i++)
     {
       popB_genotypes[i] = (struct genotype**)malloc(no_loci[i]*sizeof(struct genotype *));
       for(int j=0; j<no_loci[i]; j++)
 	popB_genotypes[i][j] = (struct genotype*)malloc(MAXINDIV*sizeof(struct genotype ));
-	
     }
-  
   pophybrid_genotypes = (struct genotype***)malloc(*noChrom*sizeof(struct genotype *));
   for(int i=0; i<*noChrom; i++)
     {
       pophybrid_genotypes[i] = (struct genotype**)malloc(no_loci[i]*sizeof(struct genotype *));
       for(int j=0; j<no_loci[i]; j++)
 	pophybrid_genotypes[i][j] = (struct genotype*)malloc(MAXINDIV*sizeof(struct genotype ));
-	
     }
 
-  /* get number of individuals sampled in pop A and B and putative hybrids */
-  /* collect individual genotypes for each chromosome and locus */
-  
+  /* allocate memory for number of individuals sampled per locus per chromosome */
   popA_noIndivs = (int**)malloc(*noChrom*sizeof(int *));
   for(int i=0; i<*noChrom; i++)
     popA_noIndivs[i] = (int*)malloc(no_loci[i]*sizeof(int));
-
   popB_noIndivs = (int**)malloc(*noChrom*sizeof(int *));
   for(int i=0; i<*noChrom; i++)
     popB_noIndivs[i] = (int*)malloc(no_loci[i]*sizeof(int));
-
    pophybrid_noIndivs = (int**)malloc(*noChrom*sizeof(int *));
   for(int i=0; i<*noChrom; i++)
     pophybrid_noIndivs[i] = (int*)malloc(no_loci[i]*sizeof(int));
 
-  linepos=0;
+  /* get individual genotypes and numbers of individuals for population samples of A, B and putative hybrids */
+  int linepos=0;
   for(int i=0; i<*noChrom; i++)
     for(int j=0; j<no_loci[i]; j++)
     {
@@ -152,32 +147,28 @@ linepos=0;
     }
   *noSamplesPophybrid = pophybrid_noIndivs[0][0];
 
-  /* get sampled population haplotypes as unsigned ints */
-  /* number of haplotypes = 2 * number of individuals sampled */
-  
+  /* allocate memory for haplotype data structures */
   *popA_haplotypes = (unsigned int **)malloc(*noChrom*sizeof(unsigned int *));
   for(int i=0; i<*noChrom; i++)
     (*popA_haplotypes)[i] = (unsigned int *)malloc(*noSamplesPopA*2*sizeof(unsigned int));
-  get_haplotypes(*popA_haplotypes,popA_genotypes,*noChrom,*noSamplesPopA,no_loci);
-
-  *popB_haplotypes = (unsigned int **)malloc(*noChrom*sizeof(unsigned int *));
+   *popB_haplotypes = (unsigned int **)malloc(*noChrom*sizeof(unsigned int *));
   for(int i=0; i<*noChrom; i++)
     (*popB_haplotypes)[i] = (unsigned int *)malloc(*noSamplesPopB*2*sizeof(unsigned int));
-  get_haplotypes(*popB_haplotypes,popB_genotypes,*noChrom,*noSamplesPopB,no_loci);
-
   *hybrid_haplotypes = (unsigned int **)malloc(*noChrom*sizeof(unsigned int *));
   for(int i=0; i<*noChrom; i++)
     (*hybrid_haplotypes)[i] = (unsigned int *)malloc(*noSamplesPophybrid*2*sizeof(unsigned int));
+
+  /* get sampled population haplotypes as unsigned ints */
+  /* number of haplotypes = 2 * number of individuals sampled */
+  get_haplotypes(*popA_haplotypes,popA_genotypes,*noChrom,*noSamplesPopA,no_loci);
+  get_haplotypes(*popB_haplotypes,popB_genotypes,*noChrom,*noSamplesPopB,no_loci);
   get_haplotypes(*hybrid_haplotypes,pophybrid_genotypes,*noChrom,*noSamplesPophybrid,no_loci);
-
+  
   /* printing information to screen */
-
   pr_summary(popAfileNm, popBfileNm, hybridfileNm, *noChrom, no_loci, chr_names,
 	     popA_noIndivs, popB_noIndivs, pophybrid_noIndivs, marker_positions);
 
-
   /* optional information printing to screen for debugging */
-  
   if(verbose==1)
     {
       pr_haplotypes(*noChrom, chr_names, *popA_haplotypes, *popB_haplotypes, *noSamplesPopA, *noSamplesPopB);
@@ -189,24 +180,21 @@ linepos=0;
   if(verbose==3)
     {
       pr_chr_SNP_stats(*noChrom, chr_names,no_loci, marker_positions);
-      
     }
 
   /* free allocated memory */
-  
   free(raw_data_popA);
   free(raw_data_popB);
   free(raw_data_hybrids);
- /*  free(popA_genotypes); */
-/*   free(popB_genotypes); */
-/*   free(pophybrid_genotypes); */
-/*   free(popA_noIndivs); */
-/*   free(popB_noIndivs); */
-/*   free(pophybrid_noIndivs); */
- } 
+  free(popA_genotypes);
+  free(popB_genotypes);
+  free(pophybrid_genotypes);
+  free(popA_noIndivs);
+  free(popB_noIndivs);
+  free(pophybrid_noIndivs);
+} 
   
-
-
+/* find if string is in array of strings */
 int findstring(char strarray[MAXCHRNUM][MAXNAMESZ], char *strtarget, int len)
 {
   for(int i=0; i<len; i++)
@@ -215,6 +203,7 @@ int findstring(char strarray[MAXCHRNUM][MAXNAMESZ], char *strtarget, int len)
   return(0);
 }
 
+/* count number of lines in file */
 int countfilelines(char filename[])
 {
   FILE *file;
@@ -234,6 +223,7 @@ int countfilelines(char filename[])
     return line_count;
 }
 
+/* read file into array of strings */
 void file_to_array (char *target_array[MAXLINESZ], char filename[])
 {
   char buffer[MAXLINESZ];
@@ -256,6 +246,7 @@ void file_to_array (char *target_array[MAXLINESZ], char filename[])
   fclose(fp);
 }
 
+/* create chromosome list, count number of loci per chromosome and number of chromosomes */
 int mk_chrom_list (char* file_array[MAXLINESZ], char names[MAXCHRNUM][MAXNAMESZ], int* no_loci, int nolines)
 {
   const char delim[] = ":";
@@ -287,6 +278,7 @@ int mk_chrom_list (char* file_array[MAXLINESZ], char names[MAXCHRNUM][MAXNAMESZ]
   return chrpos;
 }
 
+/* parse genotype string into genotype data structure */
 int get_genotypes(char* gstring, struct genotype* chr_locus)
 {
   char *token;
@@ -321,6 +313,8 @@ int get_genotypes(char* gstring, struct genotype* chr_locus)
   return numindivs;
 }
 
+/* get sampled population haplotypes as unsigned ints */
+/* number of haplotypes = 2 * number of individuals sampled */
 void get_haplotypes(unsigned int** haplotypes, struct genotype*** gdata, int nChr, int noInd, int* nloci)
 {
   int i,j,k;
@@ -348,31 +342,33 @@ void get_haplotypes(unsigned int** haplotypes, struct genotype*** gdata, int nCh
       }
 }
 
-  void get_positions(int noChr,int* no_loci, char** raw_data, unsigned long** positions)
-  {
-    int linepos=0;
-    char* token;
-    const char delim[] = ":";
-    char buffer[MAXLINESZ];
-    for(int i=0; i<noChr; i++)
-      for(int j=0; j<no_loci[i]; j++)
-	{
-	  if(i==0)
-	    linepos=j;
-	  else
-	    {
-	      linepos = 0;
-	      for(int k=0; k<i; k++)
-		linepos += no_loci[k];
-	      linepos+=j;
-	    }
-	  strncpy(buffer,raw_data[linepos],MAXLINESZ);
-	  token = strtok(buffer,delim);
-	  token = strtok(NULL,delim);
-	  positions[i][j] = strtol(token, NULL, 10);
-	}
-  }
+/* get marker positions for each chromosome */
+void get_positions(int noChr,int* no_loci, char** raw_data, unsigned long** positions)
+{
+  int linepos=0;
+  char* token;
+  const char delim[] = ":";
+  char buffer[MAXLINESZ];
+  for(int i=0; i<noChr; i++)
+    for(int j=0; j<no_loci[i]; j++)
+      {
+	if(i==0)
+	  linepos=j;
+	else
+	  {
+	    linepos = 0;
+	    for(int k=0; k<i; k++)
+	      linepos += no_loci[k];
+	    linepos+=j;
+	  }
+	strncpy(buffer,raw_data[linepos],MAXLINESZ);
+	token = strtok(buffer,delim);
+	token = strtok(NULL,delim);
+	positions[i][j] = strtol(token, NULL, 10);
+      }
+}
 
+/* summarize pop samples as haplotype counts in array of length MAXHAPS with base_10 haplotype as array index */
 void get_hap_counts(unsigned int** haplotypes, int** hap_counts, int noChr, int no_indiv)
 {
   for(int i=0; i<noChr; i++)

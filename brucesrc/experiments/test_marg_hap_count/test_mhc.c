@@ -77,7 +77,7 @@ int main()
   int ** pophapCounts;
   unsigned int ** hlist;
   char * bin_number;
-  unsigned int ancvec=5;  
+  unsigned int ancvec=1;  
   unsigned int hybrid=5;
   int nhapvec[] = {3,3}; 
   maxhaps=intpow(2,noloci);

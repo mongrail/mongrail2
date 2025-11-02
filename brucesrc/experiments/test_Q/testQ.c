@@ -64,13 +64,13 @@ double prQ(unsigned int anc, int noloci, double rec_rate_bp, unsigned long* posi
 
 int main()
 {
-  static unsigned long position[] = {100,200,300};
+  static unsigned long position[] = {100,200,600};
   double prob_sum=0.0;
   double curr_pr;
   for(unsigned int i=0; i<8; i++)
     {
       printf("prQ(");
-      curr_pr = prQ(i,3,0.01,position);
+      curr_pr = prQ(i,3,0.001,position);
       prob_sum += curr_pr;
       prn_binary(i,3);
       printf("): %f\n",curr_pr);
