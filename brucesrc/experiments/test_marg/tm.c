@@ -2,6 +2,14 @@
 #include <math.h>
 #include <stdlib.h>
 
+struct m_haplotype {
+  unsigned int m_haplo;
+  unsigned int count;
+  struct m_haplotype* next;
+};
+
+/* convert unsigned int to binary string */
+
 void uint_to_binary_string(unsigned int n, char *out, int out_size) {
     // Fill with zeros for fixed-width output
     int i, bit;
@@ -22,9 +30,11 @@ void uint_to_binary_string(unsigned int n, char *out, int out_size) {
 
 int main()
 {
-  int noloci = 3;
-  char binary_string[noloci+1];
-  int maxhaps = pow(2,noloci); 
+  int maxloci = 12;
+  char binary_string[maxloci+1];
+  int maxhaps = pow(2,maxloci);
+  struct m_haplotype* m_haps = NULL;
+  m_haps = malloc(maxhaps*sizeof(struct m_haplotype*));
   unsigned int* hapcountA;
   unsigned int* hapcountB;
   int noHapsA=3;
@@ -58,5 +68,7 @@ int main()
       uint_to_binary_string(haplistB[i], binary_string, sizeof(binary_string));
       printf("haplotype popB: %s counts: %u\n",binary_string,hapcountB[haplistB[i]]);
     }
+    uint_to_binary_string(4095, binary_string, sizeof(binary_string));
+    printf("4095 in binary: %s\n",binary_string);
 
 }
