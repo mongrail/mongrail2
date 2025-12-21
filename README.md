@@ -172,7 +172,7 @@ MONGRAIL evaluates six genealogical models for each individual:
 ### Model diagram
 
 ```
-Population A          Population B
+Population A (Md)     Population B (Ma)
      |                     |
      +----------+----------+
                 |
