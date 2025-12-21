@@ -1,0 +1,20 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##contig=<ID=chr1_16loci>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	CYP45	CYP47	CYP51	CYP60
+chr1_16loci	1000	.	T	C	.	PASS	.	GT	0|0	0|0	0|0	0|0
+chr1_16loci	1001000	.	C	T	.	PASS	.	GT	0|0	0|0	0|0	0|0
+chr1_16loci	2001000	.	G	A	.	PASS	.	GT	0|0	0|0	0|0	0|0
+chr1_16loci	3001000	.	A	G	.	PASS	.	GT	0|0	0|0	0|0	0|0
+chr1_16loci	4001000	.	G	T	.	PASS	.	GT	0|0	0|0	0|0	0|0
+chr1_16loci	5001000	.	C	A	.	PASS	.	GT	0|0	0|0	0|0	0|0
+chr1_16loci	6001000	.	C	G	.	PASS	.	GT	0|0	0|0	0|0	0|0
+chr1_16loci	7001000	.	C	T	.	PASS	.	GT	0|0	0|0	0|0	0|0
+chr1_16loci	8001000	.	G	A	.	PASS	.	GT	0|0	0|0	0|0	0|0
+chr1_16loci	9001000	.	C	T	.	PASS	.	GT	0|0	0|0	0|0	0|0
+chr1_16loci	10001000	.	A	G	.	PASS	.	GT	0|0	0|0	0|0	0|0
+chr1_16loci	11001000	.	C	T	.	PASS	.	GT	0|0	0|0	0|0	0|0
+chr1_16loci	12001000	.	C	T	.	PASS	.	GT	0|0	0|0	0|0	0|0
+chr1_16loci	13001000	.	C	T	.	PASS	.	GT	0|0	0|0	0|0	0|0
+chr1_16loci	14001000	.	T	C	.	PASS	.	GT	0|0	0|0	0|0	0|0
+chr1_16loci	15001000	.	G	A	.	PASS	.	GT	0|0	0|0	0|0	0|0

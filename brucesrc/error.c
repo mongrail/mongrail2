@@ -96,31 +96,31 @@ void pr_datastats(int noChr, char chr_nm[MAXCHRNUM][MAXNAMESZ], unsigned long** 
 }
 
 void pr_chr_SNP_stats(int noChr, char chr_nm[MAXCHRNUM][MAXNAMESZ], int no_loci[MAXCHRNUM], unsigned long** positions)
- {
-   printf("\n Chromosome/Scaffold => SNP_Positions_(bps)\n");
-   printf(" -------------------------------------------\n");
-   for(int i=0; i<noChr; i++)
-     {
-       // printf("%s => %d =>",chr_nm[i],no_loci[i]);
-       printf(" %s =>",chr_nm[i]);
-       for(int j=0; j<no_loci[i]; j++)
- 	 printf(" %ld",positions[i][j]);
-       printf("\n");
-     }
-   printf("\n");
- }
- 
+{
+  fprintf(stderr, "SNP positions (bp):\n");
+  for (int i = 0; i < noChr; i++) {
+    fprintf(stderr, "  %s:", chr_nm[i]);
+    for (int j = 0; j < no_loci[i]; j++)
+      fprintf(stderr, " %ld", positions[i][j]);
+    fprintf(stderr, "\n");
+  }
+}
+
 void pr_summary(char popAfileNm[MAXFILENMSZ], char popBfileNm[MAXFILENMSZ], char hybridfileNm[MAXFILENMSZ], int noChr, int no_loci[MAXCHRNUM], char chr_nm[MAXCHRNUM][MAXNAMESZ], int** popA_noIndivs, int** popB_noIndivs, int** pophybrid_noIndivs,unsigned long** positions)
 {
-  printf(" Reading_input_files:\n --------------------\n Population_A: %s\n Population_B: %s\n Putative_hybrids: %s\n\n",popAfileNm,popBfileNm,hybridfileNm);
-  printf(" Number_of_Chromosomes/Scaffolds: %d\n\n",noChr);
-  printf(" Chromosome/Scaffold  No_SNPs Pop_A_No_Ind Pop_B_No_Ind Hybrids_No_Ind\n");
-  printf(" ---------------------------------------------------------------------\n");
-  for(int i=0; i<noChr; i++)
-    {
-      printf(" %-20s %-7d %-12d %-12d %d\n",chr_nm[i],no_loci[i],popA_noIndivs[i][0],popB_noIndivs[i][0],pophybrid_noIndivs[i][0]);
-    }
-  pr_chr_SNP_stats(noChr, chr_nm,no_loci, positions);
+  fprintf(stderr, "Input files:\n");
+  fprintf(stderr, "  Pop A:    %s\n", popAfileNm);
+  fprintf(stderr, "  Pop B:    %s\n", popBfileNm);
+  fprintf(stderr, "  Hybrids:  %s\n", hybridfileNm);
+  fprintf(stderr, "\nData summary:\n");
+  fprintf(stderr, "  %-16s %7s %8s %8s %8s\n", "Chromosome", "SNPs", "n_A", "n_B", "n_hyb");
+  for (int i = 0; i < noChr; i++) {
+    fprintf(stderr, "  %-16s %7d %8d %8d %8d\n",
+	    chr_nm[i], no_loci[i], popA_noIndivs[i][0], popB_noIndivs[i][0], pophybrid_noIndivs[i][0]);
+  }
+  fprintf(stderr, "\n");
+  pr_chr_SNP_stats(noChr, chr_nm, no_loci, positions);
+  fprintf(stderr, "\n");
 }
 
   /* debugging */
