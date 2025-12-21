@@ -49,7 +49,7 @@ mongrail2 [options] popA popB hybrids
 
 | Option | Description |
 |--------|-------------|
-| `-c` | Read VCF format (requires phased, biallelic SNPs; max 12 per chromosome) |
+| `-c` | Read VCF format (requires phased, biallelic SNPs; max 16 per chromosome) |
 | `-r RATE` | Recombination rate per base pair (default: 1e-8) |
 | `-v` | Verbose output (show input file summary) |
 | `-h` | Show help message |
@@ -93,7 +93,7 @@ Chr2    1200    0|1    0|1    0|0
 
 ### Constraints (.GT format)
 
-- Maximum 32 SNPs per chromosome/scaffold
+- Maximum 16 SNPs per chromosome/scaffold
 - Maximum 1000 chromosomes/scaffolds
 - Maximum 1000 individuals per population
 - All three input files must have the same chromosomes and SNP positions
@@ -106,7 +106,7 @@ When using the `-c` option, MONGRAIL reads standard VCF files.
 
 - **Phased genotypes**: All genotypes must use `|` separator (e.g., `0|1`)
 - **Biallelic SNPs only**: No indels or multiallelic sites
-- **Maximum 12 SNPs per chromosome**: Hard limit for computational tractability
+- **Maximum 16 SNPs per chromosome**: Hard limit for computational tractability
 - **Matching positions**: All three VCF files must have identical chromosomes and positions
 
 ### Example VCF
