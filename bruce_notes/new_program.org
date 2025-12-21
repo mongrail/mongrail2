@@ -1,2 +1,0 @@
-* Input preprocessing
-bcftools query -f '%CHROM:%POS\t\t[\t%GT]\n' input.vcf > input.gt
