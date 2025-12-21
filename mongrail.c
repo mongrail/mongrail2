@@ -8,6 +8,33 @@
 
 int verbose = 0;
 
+/*
+ * Compute posterior probabilities from log-likelihoods using log-sum-exp trick.
+ * Assumes uniform priors over the 6 genealogical classes.
+ *
+ * Input: logL array of 6 log-likelihoods
+ * Output: post array of 6 posterior probabilities (normalized to sum to 1)
+ */
+static void compute_posteriors(const double *logL, double *post, int n)
+{
+  /* Find maximum log-likelihood for numerical stability */
+  double max_ll = logL[0];
+  for (int i = 1; i < n; i++) {
+    if (logL[i] > max_ll) max_ll = logL[i];
+  }
+
+  /* Compute sum of exp(logL[i] - max_ll) */
+  double sum_exp = 0.0;
+  for (int i = 0; i < n; i++) {
+    sum_exp += exp(logL[i] - max_ll);
+  }
+
+  /* Compute posteriors: exp(logL[i] - max_ll) / sum_exp */
+  for (int i = 0; i < n; i++) {
+    post[i] = exp(logL[i] - max_ll) / sum_exp;
+  }
+}
+
 static void usage(const char *progname)
 {
   fprintf(stderr, "Usage: %s [options] popA popB hybrids\n", progname);
@@ -194,9 +221,11 @@ int main(int argc, char *argv[])
   printf("# recomb_rate=%.2e  chroms=%d  n_A=%d  n_B=%d  n_hyb=%d\n",
 	 recomb_rate_per_bp, noChrom, noSamplesPopA, noSamplesPopB, noSamplesPophybrid);
   printf("#\n");
-  printf("# indiv      Ma          Mb          Mc          Md          Me          Mf\n");
+  printf("# Log-likelihoods followed by posterior probabilities (assuming uniform priors)\n");
+  printf("#\n");
+  printf("# indiv      Ma          Mb          Mc          Md          Me          Mf       P(Ma)   P(Mb)   P(Mc)   P(Md)   P(Me)   P(Mf)\n");
 
-  /* compute and output log-likelihoods */
+  /* compute and output log-likelihoods and posterior probabilities */
   for (int i = 0; i < noSamplesPophybrid; i++) {
     double lik_d = lik_a_d(i, hybrid_indiv, popA_hap_counts, haplist, nohaps,
 			   noSamplesPopA, noSamplesPopB, noChrom, MODEL_D);
@@ -211,8 +240,14 @@ int main(int argc, char *argv[])
     double lik_ff = lik_f_cached(cache, i, hybrid_indiv, popB_hap_counts, popA_hap_counts,
 				 haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom);
 
-    printf("%7d  %10.4f  %10.4f  %10.4f  %10.4f  %10.4f  %10.4f\n",
-	   i, lik_d, lik_b, lik_cc, lik_a, lik_e, lik_ff);
+    /* Compute posterior probabilities using log-sum-exp trick */
+    double logL[6] = {lik_d, lik_b, lik_cc, lik_a, lik_e, lik_ff};
+    double post[6];
+    compute_posteriors(logL, post, 6);
+
+    printf("%7d  %10.4f  %10.4f  %10.4f  %10.4f  %10.4f  %10.4f  %7.4f %7.4f %7.4f %7.4f %7.4f %7.4f\n",
+	   i, lik_d, lik_b, lik_cc, lik_a, lik_e, lik_ff,
+	   post[0], post[1], post[2], post[3], post[4], post[5]);
   }
 
   cache_free(cache);

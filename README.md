@@ -2,7 +2,7 @@
 
 Bayesian inference of hybrid genealogy from population genetic data.
 
-MONGRAIL classifies individuals as purebred or hybrid based on multilocus genotype data from two reference populations. It computes log-likelihoods for six genealogical models representing different hybrid categories.
+MONGRAIL classifies individuals as purebred or hybrid based on multilocus genotype data from two reference populations. It computes log-likelihoods and posterior probabilities for six genealogical models representing different hybrid categories.
 
 ## Installation
 
@@ -136,15 +136,18 @@ Output is written to stdout in a format suitable for downstream processing:
 # mongrail 2.0
 # recomb_rate=1.00e-08  chroms=2  n_A=4  n_B=4  n_hyb=3
 #
-# indiv      Ma          Mb          Mc          Md          Me          Mf
-      0     -0.8825     -2.2860     -9.0206    -12.9229    -10.3721     -3.6376
-      1    -12.9229    -10.2429     -8.8892     -0.6351     -2.0255     -3.3791
-      2     -7.4921     -2.1017     -0.7920     -7.4921     -2.1017     -2.1018
+# Log-likelihoods followed by posterior probabilities (assuming uniform priors)
+#
+# indiv      Ma          Mb          Mc          Md          Me          Mf       P(Ma)   P(Mb)   P(Mc)   P(Md)   P(Me)   P(Mf)
+      0     -0.8825     -2.2860     -9.0206    -12.9229    -10.3721     -3.6376   0.7635  0.1876  0.0002  0.0000  0.0001  0.0486
+      1    -12.9229    -10.2429     -8.8892     -0.6351     -2.0255     -3.3791   0.0000  0.0001  0.0002  0.7612  0.1895  0.0490
+      2     -7.4921     -2.1017     -0.7920     -7.4921     -2.1017     -2.1018   0.0007  0.1489  0.5518  0.0007  0.1489  0.1489
 ```
 
 - Header lines begin with `#`
-- Each row contains log-likelihoods for one individual across all six models
-- The model with the highest (least negative) log-likelihood is the best fit
+- Each row contains log-likelihoods and posterior probabilities for one individual across all six models
+- **Log-likelihoods (Ma-Mf)**: The model with the highest (least negative) value is the best fit
+- **Posterior probabilities (P(Ma)-P(Mf))**: Probability of each model given the data, assuming uniform priors. These sum to 1.0 for each individual
 
 ### Filtering output
 
@@ -206,9 +209,9 @@ The default recombination rate is 1e-8 per base pair (approximately 1 cM per Mb)
 
 MONGRAIL uses a Bayesian approach with:
 
-- **Prior**: Symmetric Dirichlet prior on haplotype frequencies
+- **Prior**: Symmetric Dirichlet prior on haplotype frequencies; uniform prior over genealogical models
 - **Likelihood**: Posterior predictive distribution (Dirichlet-Multinomial)
-- **Inference**: Maximum likelihood classification across models
+- **Inference**: Posterior probability computation across models
 
 The posterior predictive probability for observing a haplotype is:
 
@@ -217,6 +220,14 @@ P(haplotype | data) = (count + α) / (total + H·α)
 ```
 
 Where `α = 1/H` is the prior pseudocount and `H` is the number of possible haplotypes.
+
+The posterior probability for each genealogical model is computed as:
+
+```
+P(Model_i | data) = L_i / Σ_j L_j
+```
+
+Where `L_i = exp(log-likelihood_i)`.
 
 ## Performance
 
@@ -255,11 +266,16 @@ Typical performance: ~0.3 seconds for 31 individuals across 34 chromosomes.
 
 ## Interpreting Results
 
-1. **Identify the best model**: For each individual, the model with the highest log-likelihood is the most probable classification.
+1. **Use posterior probabilities**: The P(M*) columns give the probability of each genealogical class. Values close to 1.0 indicate high confidence; values spread across multiple models indicate uncertainty.
 
-2. **Assess confidence**: Compare log-likelihoods between models. Larger differences indicate stronger evidence.
+2. **Identify the best model**: For each individual, the model with the highest posterior probability (or equivalently, highest log-likelihood) is the most probable classification.
 
-3. **Consider biological context**:
+3. **Assess confidence**:
+   - P > 0.95: Strong support for classification
+   - P = 0.5-0.95: Moderate support, consider alternative models
+   - P < 0.5: Weak support, multiple models plausible
+
+4. **Consider biological context**:
    - Pure individuals (Ma, Md) should have much higher likelihoods than hybrid models
    - F1 hybrids (Mc) should show intermediate ancestry
    - Backcrosses (Mb, Me) and F2 (Mf) show evidence of recombination
@@ -267,11 +283,15 @@ Typical performance: ~0.3 seconds for 31 individuals across 34 chromosomes.
 ### Example interpretation
 
 ```
-# indiv      Ma          Mb          Mc          Md          Me          Mf
-      0     -0.88       -2.29       -9.02      -12.92      -10.37       -3.64
+# indiv      Ma          Mb          Mc          Md          Me          Mf       P(Ma)   P(Mb)   P(Mc)   P(Md)   P(Me)   P(Mf)
+      0     -0.88       -2.29       -9.02      -12.92      -10.37       -3.64    0.7635  0.1876  0.0002  0.0000  0.0001  0.0486
+      1    -12.92      -10.24       -8.89       -0.64       -2.03       -3.38    0.0000  0.0001  0.0002  0.7612  0.1895  0.0490
+      2     -7.49       -2.10       -0.79       -7.49       -2.10       -2.10    0.0007  0.1489  0.5518  0.0007  0.1489  0.1489
 ```
 
-Individual 0: Ma (-0.88) is the best model by a large margin, indicating this individual is most likely pure population A.
+- **Individual 0**: P(Ma)=0.76 indicates ~76% probability of being pure population A, with some support for Mb (backcross to A)
+- **Individual 1**: P(Md)=0.76 indicates ~76% probability of being pure population B
+- **Individual 2**: P(Mc)=0.55 suggests an F1 hybrid, but with notable uncertainty (Mb, Me, Mf each ~15%)
 
 ## Citation
 
