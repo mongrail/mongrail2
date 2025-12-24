@@ -1,8 +1,9 @@
 name: Build and Release
 
 on:
-  release:
-    types: [created]
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag_name:
@@ -105,8 +106,8 @@ jobs:
       - name: Get release tag
         id: get_tag
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           else
             echo "tag=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
           fi
