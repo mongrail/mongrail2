@@ -92,12 +92,11 @@ jobs:
         run: |
           make clean
           make CFLAGS="-Wall -O3 -ffast-math" CC=gcc
-          mv mongrail2 mongrail2.exe
 
       - name: Create archive
         run: |
           mkdir -p mongrail2-windows-x86_64
-          cp mongrail2.exe mongrail2-windows-x86_64/
+          cp mongrail2.exe mongrail2-windows-x86_64/ 2>/dev/null || cp mongrail2 mongrail2-windows-x86_64/mongrail2.exe
           cp -r examples/puma mongrail2-windows-x86_64/
           cp -r examples/puma_vcf mongrail2-windows-x86_64/
           zip -r mongrail2-windows-x86_64.zip mongrail2-windows-x86_64
