@@ -1,0 +1,123 @@
+name: Build and Release
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for the release'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libhts-dev
+
+      - name: Build
+        run: |
+          make clean
+          make CFLAGS="-Wall -O3 -ffast-math"
+          mv mongrail2 mongrail2-linux-x86_64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mongrail2-linux-x86_64
+          path: mongrail2-linux-x86_64
+
+  build-macos-arm:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install htslib
+
+      - name: Build
+        run: |
+          export HTSLIB_PREFIX=$(brew --prefix htslib)
+          make clean
+          make CFLAGS="-Wall -O3 -ffast-math -I${HTSLIB_PREFIX}/include" LDFLAGS="-L${HTSLIB_PREFIX}/lib -lm -lhts"
+          mv mongrail2 mongrail2-macos-arm64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mongrail2-macos-arm64
+          path: mongrail2-macos-arm64
+
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-htslib
+            make
+
+      - name: Build
+        run: |
+          make clean
+          make CFLAGS="-Wall -O3 -ffast-math" CC=gcc
+          mv mongrail2 mongrail2-windows-x86_64.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mongrail2-windows-x86_64
+          path: mongrail2-windows-x86_64.exe
+
+  create-release:
+    needs: [build-linux, build-macos-arm, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create source archive
+        run: |
+          git archive --format=tar.gz --prefix=mongrail2-src/ -o artifacts/mongrail2-src.tar.gz HEAD
+          git archive --format=zip --prefix=mongrail2-src/ -o artifacts/mongrail2-src.zip HEAD
+
+      - name: Get release tag
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_tag.outputs.tag }}
+          files: |
+            artifacts/mongrail2-linux-x86_64/mongrail2-linux-x86_64
+            artifacts/mongrail2-macos-arm64/mongrail2-macos-arm64
+            artifacts/mongrail2-windows-x86_64/mongrail2-windows-x86_64.exe
+            artifacts/mongrail2-src.tar.gz
+            artifacts/mongrail2-src.zip
