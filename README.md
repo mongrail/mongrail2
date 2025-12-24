@@ -13,16 +13,21 @@ MONGRAIL classifies individuals as purebred or hybrid based on multilocus genoty
 
 Download the latest release for your platform from the [Releases page](https://github.com/mongrail/mongrail2/releases):
 
-- **Linux (x86_64)**: `mongrail2-linux-x86_64`
-- **macOS (Apple Silicon)**: `mongrail2-macos-arm64`
-- **Windows (x86_64)**: `mongrail2-windows-x86_64.exe`
+- **Linux (x86_64)**: `mongrail2-linux-x86_64.tar.gz`
+- **macOS (Apple Silicon)**: `mongrail2-macos-arm64.tar.gz`
+- **Windows (x86_64)**: `mongrail2-windows-x86_64.zip`
 
-After downloading, make the binary executable (Linux/macOS):
+Each archive contains the executable and example data (puma dataset in GT and VCF formats).
 
+**Linux/macOS:**
 ```bash
-chmod +x mongrail2-linux-x86_64
-./mongrail2-linux-x86_64 --help
+tar -xzf mongrail2-linux-x86_64.tar.gz
+cd mongrail2-linux-x86_64
+./mongrail2 --help
 ```
+
+**Windows:**
+Extract the zip file and run `mongrail2.exe` from the command prompt.
 
 #### Installing htslib (Required)
 
