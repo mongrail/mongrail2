@@ -6,7 +6,182 @@
 #include "mongrail.h"
 
 extern int verbose;
-  
+
+/* Check if file appears to be VCF format */
+static int is_vcf_file(const char *filename)
+{
+  FILE *fp = fopen(filename, "r");
+  if (!fp) return 0;
+
+  char line[256];
+  if (fgets(line, sizeof(line), fp) != NULL) {
+    fclose(fp);
+    /* VCF files start with ## or #CHROM */
+    if (strncmp(line, "##", 2) == 0 || strncmp(line, "#CHROM", 6) == 0)
+      return 1;
+  } else {
+    fclose(fp);
+  }
+  return 0;
+}
+
+/*
+ * Structure to hold a single locus (chromosome + position)
+ */
+struct locus {
+  char chr[MAXNAMESZ];
+  unsigned long pos;
+};
+
+/*
+ * Compare two loci for sorting: first by chromosome name, then by position
+ */
+static int compare_loci(const void *a, const void *b)
+{
+  const struct locus *la = (const struct locus *)a;
+  const struct locus *lb = (const struct locus *)b;
+  int chr_cmp = strcmp(la->chr, lb->chr);
+  if (chr_cmp != 0) return chr_cmp;
+  if (la->pos < lb->pos) return -1;
+  if (la->pos > lb->pos) return 1;
+  return 0;
+}
+
+/*
+ * Extract loci (chr:pos) from raw file data into locus array.
+ * Returns number of loci extracted.
+ */
+static int extract_loci(char** raw_data, int nlines, struct locus* loci)
+{
+  char buffer[MAXLINESZ];
+  const char delim[] = ":";
+
+  for (int i = 0; i < nlines; i++) {
+    strncpy(buffer, raw_data[i], MAXLINESZ);
+    buffer[MAXLINESZ-1] = '\0';
+
+    char *chr = strtok(buffer, delim);
+    char *pos_str = strtok(NULL, delim);
+
+    if (chr == NULL || pos_str == NULL) {
+      fprintf(stderr, "mongrail: error: malformed line %d (expected chr:pos format)\n", i+1);
+      exit(1);
+    }
+
+    strncpy(loci[i].chr, chr, MAXNAMESZ);
+    loci[i].chr[MAXNAMESZ-1] = '\0';
+    loci[i].pos = strtoul(pos_str, NULL, 10);
+  }
+  return nlines;
+}
+
+/*
+ * Merge loci from three files into a sorted, deduplicated list.
+ * Returns the number of unique loci.
+ */
+static int merge_loci(struct locus* loci_a, int n_a,
+		      struct locus* loci_b, int n_b,
+		      struct locus* loci_h, int n_h,
+		      struct locus* merged)
+{
+  /* Copy all loci into merged array */
+  int total = 0;
+  for (int i = 0; i < n_a; i++) merged[total++] = loci_a[i];
+  for (int i = 0; i < n_b; i++) merged[total++] = loci_b[i];
+  for (int i = 0; i < n_h; i++) merged[total++] = loci_h[i];
+
+  /* Sort by chromosome then position */
+  qsort(merged, total, sizeof(struct locus), compare_loci);
+
+  /* Remove duplicates */
+  if (total == 0) return 0;
+  int unique = 1;
+  for (int i = 1; i < total; i++) {
+    if (strcmp(merged[i].chr, merged[unique-1].chr) != 0 ||
+	merged[i].pos != merged[unique-1].pos) {
+      merged[unique++] = merged[i];
+    }
+  }
+
+  return unique;
+}
+
+/*
+ * Find the index of a locus in raw_data, or return -1 if not found.
+ * Uses binary search since loci are sorted.
+ */
+static int find_locus_in_file(struct locus* file_loci, int n_loci,
+			      const char* chr, unsigned long pos)
+{
+  int lo = 0, hi = n_loci - 1;
+  while (lo <= hi) {
+    int mid = (lo + hi) / 2;
+    int cmp = strcmp(file_loci[mid].chr, chr);
+    if (cmp == 0) {
+      if (file_loci[mid].pos == pos) return mid;
+      if (file_loci[mid].pos < pos) lo = mid + 1;
+      else hi = mid - 1;
+    } else if (cmp < 0) {
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return -1;  /* Not found */
+}
+
+/*
+ * Set missing genotypes for all individuals at a locus.
+ * Used when a locus is absent from a file.
+ */
+static void set_missing_genotypes(struct genotype* genos, int n_indiv)
+{
+  for (int i = 0; i < n_indiv; i++) {
+    genos[i].g1 = MISSING_ALLELE;
+    genos[i].g2 = MISSING_ALLELE;
+    genos[i].phase = '|';
+  }
+}
+
+/*
+ * Build chromosome list from merged loci.
+ * Returns number of chromosomes and populates chr_names and no_loci arrays.
+ */
+static int build_chrom_list_from_merged(struct locus* merged, int n_merged,
+					char chr_names[MAXCHRNUM][MAXNAMESZ],
+					int no_loci[MAXCHRNUM])
+{
+  if (n_merged == 0) return 0;
+
+  int n_chrom = 0;
+  char current_chr[MAXNAMESZ] = "";
+
+  for (int i = 0; i < n_merged; i++) {
+    if (strcmp(merged[i].chr, current_chr) != 0) {
+      /* New chromosome */
+      if (n_chrom >= MAXCHRNUM) {
+	fprintf(stderr, "mongrail: error: too many chromosomes (limit: %d)\n", MAXCHRNUM);
+	exit(1);
+      }
+      strncpy(chr_names[n_chrom], merged[i].chr, MAXNAMESZ);
+      chr_names[n_chrom][MAXNAMESZ-1] = '\0';
+      strncpy(current_chr, merged[i].chr, MAXNAMESZ);
+      current_chr[MAXNAMESZ-1] = '\0';
+      no_loci[n_chrom] = 1;
+      n_chrom++;
+    } else {
+      no_loci[n_chrom-1]++;
+      if (no_loci[n_chrom-1] > 32) {
+	fprintf(stderr, "mongrail: error: too many SNPs (%d) on chromosome '%s' (limit: 32)\n",
+		no_loci[n_chrom-1], current_chr);
+	exit(1);
+      }
+    }
+  }
+
+  return n_chrom;
+}
+
 void readDataFiles(char popAfileNm[], char popBfileNm[], char hybridfileNm[],
 		   int* noSamplesPopA, int* noSamplesPopB, int* noSamplesPophybrid,
 		   int* noChrom, char chr_names[MAXCHRNUM][MAXNAMESZ], int no_loci[MAXCHRNUM],
@@ -14,184 +189,209 @@ void readDataFiles(char popAfileNm[], char popBfileNm[], char hybridfileNm[],
 		   unsigned int*** popB_haplotypes, unsigned int*** hybrid_haplotypes,
 		   unsigned int*** hybrid_missing_masks)
 {
-  /* matrix in which each row is a line from the input files for population A, B or hybrid */
-  char** raw_data_popA = NULL; 
-  char** raw_data_popB = NULL;
-  char** raw_data_hybrids = NULL;
+  /* Check if any input file is VCF format */
+  if (is_vcf_file(popAfileNm) || is_vcf_file(popBfileNm) || is_vcf_file(hybridfileNm)) {
+    fprintf(stderr, "mongrail: error: input file appears to be VCF format\n");
+    fprintf(stderr, "Use the -c option to read VCF files: mongrail2 -c popA.vcf popB.vcf hybrids.vcf\n");
+    exit(1);
+  }
 
-  /* genotype data structures for each population and putative hybrids. */
-  /* Tensor of chromosomes, loci and individuals */
-  struct genotype*** popA_genotypes = NULL;
-  struct genotype*** popB_genotypes = NULL;
-  struct genotype*** pophybrid_genotypes = NULL;
+  /* Count lines in each file (may be different) */
+  int n_lines_A = countfilelines(popAfileNm);
+  int n_lines_B = countfilelines(popBfileNm);
+  int n_lines_H = countfilelines(hybridfileNm);
 
-  /* number of individuals sampled per locus per chromosome for each population and putative hybrids */
-  int** popA_noIndivs = NULL;
-  int** popB_noIndivs = NULL;
-  int** pophybrid_noIndivs = NULL;
+  /* Read all three files */
+  char** raw_data_popA = (char**)malloc(n_lines_A * sizeof(char*));
+  char** raw_data_popB = (char**)malloc(n_lines_B * sizeof(char*));
+  char** raw_data_hybrids = (char**)malloc(n_lines_H * sizeof(char*));
 
-  /* total number of lines in popA.GT */ 
-  int no_file_lines = countfilelines(popAfileNm);
-
-  /* error checking: # lines equals # loci. Must be equal in popA.GT, popB.GT and hybrids.GT */
-  err_line_n(popAfileNm, popBfileNm, hybridfileNm);
-
-  /* read popA data */
-  raw_data_popA = (char**)malloc(no_file_lines*sizeof(char *));
   file_to_array(raw_data_popA, popAfileNm);
- 
-  
-  /* read popB data */
-  raw_data_popB = (char**)malloc(no_file_lines*sizeof(char *));
   file_to_array(raw_data_popB, popBfileNm);
- 
-
-  /* read hybrid data */
-  raw_data_hybrids = (char**)malloc(no_file_lines*sizeof(char *));
   file_to_array(raw_data_hybrids, hybridfileNm);
- 
 
-  /* get chromosome list, number of loci per chromosome and number of chromosomes */
-  *noChrom = mk_chrom_list(raw_data_popA, chr_names, no_loci, no_file_lines);
+  /* Extract loci from each file */
+  struct locus* loci_A = malloc(n_lines_A * sizeof(struct locus));
+  struct locus* loci_B = malloc(n_lines_B * sizeof(struct locus));
+  struct locus* loci_H = malloc(n_lines_H * sizeof(struct locus));
 
-  /* allocate memory for marker positions */
-  *marker_positions = (unsigned long**)malloc(*noChrom*sizeof(unsigned long *));
-  for(int i=0; i<*noChrom; i++)
-    (*marker_positions)[i] = (unsigned long*)malloc(no_loci[i]*sizeof(unsigned long));
+  extract_loci(raw_data_popA, n_lines_A, loci_A);
+  extract_loci(raw_data_popB, n_lines_B, loci_B);
+  extract_loci(raw_data_hybrids, n_lines_H, loci_H);
 
-  /* get marker positions for each chromosome */
-  get_positions(*noChrom, no_loci, raw_data_popA, *marker_positions);
+  /* Sort each file's loci for binary search later */
+  qsort(loci_A, n_lines_A, sizeof(struct locus), compare_loci);
+  qsort(loci_B, n_lines_B, sizeof(struct locus), compare_loci);
+  qsort(loci_H, n_lines_H, sizeof(struct locus), compare_loci);
 
-  /* allocate memory for genotype data structures */
-  popA_genotypes = (struct genotype***)malloc(*noChrom*sizeof(struct genotype *));
-  for(int i=0; i<*noChrom; i++)
-    {
-      popA_genotypes[i] = (struct genotype**)malloc(no_loci[i]*sizeof(struct genotype *));
-      for(int j=0; j<no_loci[i]; j++)
-	popA_genotypes[i][j] = (struct genotype*)malloc(MAXINDIV*sizeof(struct genotype ));
+  /* Merge loci from all three files */
+  int max_merged = n_lines_A + n_lines_B + n_lines_H;
+  struct locus* merged_loci = malloc(max_merged * sizeof(struct locus));
+  int n_merged = merge_loci(loci_A, n_lines_A, loci_B, n_lines_B,
+			    loci_H, n_lines_H, merged_loci);
+
+  if (n_merged == 0) {
+    fprintf(stderr, "mongrail: error: no loci found in input files\n");
+    exit(1);
+  }
+
+  /* Build chromosome list from merged loci */
+  memset(no_loci, 0, MAXCHRNUM * sizeof(int));
+  *noChrom = build_chrom_list_from_merged(merged_loci, n_merged, chr_names, no_loci);
+
+  /* Report if files have different loci */
+  if (verbose && (n_lines_A != n_merged || n_lines_B != n_merged || n_lines_H != n_merged)) {
+    fprintf(stderr, "Note: Files have different loci (A=%d, B=%d, H=%d, merged=%d)\n",
+	    n_lines_A, n_lines_B, n_lines_H, n_merged);
+    fprintf(stderr, "      Missing loci will be treated as missing data\n");
+  }
+
+  /* Allocate marker positions from merged loci */
+  *marker_positions = (unsigned long**)malloc(*noChrom * sizeof(unsigned long*));
+  int locus_idx = 0;
+  for (int c = 0; c < *noChrom; c++) {
+    (*marker_positions)[c] = (unsigned long*)malloc(no_loci[c] * sizeof(unsigned long));
+    for (int l = 0; l < no_loci[c]; l++) {
+      (*marker_positions)[c][l] = merged_loci[locus_idx++].pos;
     }
-  popB_genotypes = (struct genotype***)malloc(*noChrom*sizeof(struct genotype *));
-  for(int i=0; i<*noChrom; i++)
-    {
-      popB_genotypes[i] = (struct genotype**)malloc(no_loci[i]*sizeof(struct genotype *));
-      for(int j=0; j<no_loci[i]; j++)
-	popB_genotypes[i][j] = (struct genotype*)malloc(MAXINDIV*sizeof(struct genotype ));
+  }
+
+  /* Get sample counts from first locus in each file */
+  struct genotype temp_genos[MAXINDIV];
+  *noSamplesPopA = get_genotypes(raw_data_popA[0], temp_genos);
+  *noSamplesPopB = get_genotypes(raw_data_popB[0], temp_genos);
+  *noSamplesPophybrid = get_genotypes(raw_data_hybrids[0], temp_genos);
+
+  if (*noSamplesPopA == 0) {
+    fprintf(stderr, "mongrail: error: no individuals found in population A file\n");
+    exit(1);
+  }
+  if (*noSamplesPopB == 0) {
+    fprintf(stderr, "mongrail: error: no individuals found in population B file\n");
+    exit(1);
+  }
+  if (*noSamplesPophybrid == 0) {
+    fprintf(stderr, "mongrail: error: no individuals found in hybrids file\n");
+    exit(1);
+  }
+
+  /* Allocate genotype data structures */
+  struct genotype*** popA_genotypes = (struct genotype***)malloc(*noChrom * sizeof(struct genotype**));
+  struct genotype*** popB_genotypes = (struct genotype***)malloc(*noChrom * sizeof(struct genotype**));
+  struct genotype*** pophybrid_genotypes = (struct genotype***)malloc(*noChrom * sizeof(struct genotype**));
+
+  for (int c = 0; c < *noChrom; c++) {
+    popA_genotypes[c] = (struct genotype**)malloc(no_loci[c] * sizeof(struct genotype*));
+    popB_genotypes[c] = (struct genotype**)malloc(no_loci[c] * sizeof(struct genotype*));
+    pophybrid_genotypes[c] = (struct genotype**)malloc(no_loci[c] * sizeof(struct genotype*));
+    for (int l = 0; l < no_loci[c]; l++) {
+      popA_genotypes[c][l] = (struct genotype*)malloc(MAXINDIV * sizeof(struct genotype));
+      popB_genotypes[c][l] = (struct genotype*)malloc(MAXINDIV * sizeof(struct genotype));
+      pophybrid_genotypes[c][l] = (struct genotype*)malloc(MAXINDIV * sizeof(struct genotype));
     }
-  pophybrid_genotypes = (struct genotype***)malloc(*noChrom*sizeof(struct genotype *));
-  for(int i=0; i<*noChrom; i++)
-    {
-      pophybrid_genotypes[i] = (struct genotype**)malloc(no_loci[i]*sizeof(struct genotype *));
-      for(int j=0; j<no_loci[i]; j++)
-	pophybrid_genotypes[i][j] = (struct genotype*)malloc(MAXINDIV*sizeof(struct genotype ));
+  }
+
+  /* Process each merged locus for each population */
+  locus_idx = 0;
+  for (int c = 0; c < *noChrom; c++) {
+    for (int l = 0; l < no_loci[c]; l++) {
+      struct locus* mloc = &merged_loci[locus_idx];
+
+      /* Population A */
+      int file_idx_A = find_locus_in_file(loci_A, n_lines_A, mloc->chr, mloc->pos);
+      if (file_idx_A >= 0) {
+	get_genotypes(raw_data_popA[file_idx_A], popA_genotypes[c][l]);
+      } else {
+	set_missing_genotypes(popA_genotypes[c][l], *noSamplesPopA);
+      }
+
+      /* Population B */
+      int file_idx_B = find_locus_in_file(loci_B, n_lines_B, mloc->chr, mloc->pos);
+      if (file_idx_B >= 0) {
+	get_genotypes(raw_data_popB[file_idx_B], popB_genotypes[c][l]);
+      } else {
+	set_missing_genotypes(popB_genotypes[c][l], *noSamplesPopB);
+      }
+
+      /* Hybrids */
+      int file_idx_H = find_locus_in_file(loci_H, n_lines_H, mloc->chr, mloc->pos);
+      if (file_idx_H >= 0) {
+	get_genotypes(raw_data_hybrids[file_idx_H], pophybrid_genotypes[c][l]);
+      } else {
+	set_missing_genotypes(pophybrid_genotypes[c][l], *noSamplesPophybrid);
+      }
+
+      locus_idx++;
     }
+  }
 
-  /* allocate memory for number of individuals sampled per locus per chromosome */
-  popA_noIndivs = (int**)malloc(*noChrom*sizeof(int *));
-  for(int i=0; i<*noChrom; i++)
-    popA_noIndivs[i] = (int*)malloc(no_loci[i]*sizeof(int));
-  popB_noIndivs = (int**)malloc(*noChrom*sizeof(int *));
-  for(int i=0; i<*noChrom; i++)
-    popB_noIndivs[i] = (int*)malloc(no_loci[i]*sizeof(int));
-   pophybrid_noIndivs = (int**)malloc(*noChrom*sizeof(int *));
-  for(int i=0; i<*noChrom; i++)
-    pophybrid_noIndivs[i] = (int*)malloc(no_loci[i]*sizeof(int));
+  /* Allocate haplotype data structures */
+  *popA_haplotypes = (unsigned int**)malloc(*noChrom * sizeof(unsigned int*));
+  *popB_haplotypes = (unsigned int**)malloc(*noChrom * sizeof(unsigned int*));
+  *hybrid_haplotypes = (unsigned int**)malloc(*noChrom * sizeof(unsigned int*));
+  *hybrid_missing_masks = (unsigned int**)malloc(*noChrom * sizeof(unsigned int*));
 
-  /* get individual genotypes and numbers of individuals for population samples of A, B and putative hybrids */
-  int linepos=0;
-  for(int i=0; i<*noChrom; i++)
-    for(int j=0; j<no_loci[i]; j++)
-    {
-      if(i==0)
-	linepos=j;
-      else
-	{
-	  linepos = 0;
-	  for(int k=0; k<i; k++)
-	    linepos += no_loci[k];
-	  linepos+=j;
-	}
-      popA_noIndivs[i][j] = get_genotypes(raw_data_popA[linepos],popA_genotypes[i][j]);
-    }
-  *noSamplesPopA = popA_noIndivs[0][0];
+  /* Also need missing masks for popA and popB now */
+  unsigned int** popA_missing_masks = (unsigned int**)malloc(*noChrom * sizeof(unsigned int*));
+  unsigned int** popB_missing_masks = (unsigned int**)malloc(*noChrom * sizeof(unsigned int*));
 
- linepos=0;
-  for(int i=0; i<*noChrom; i++)
-    for(int j=0; j<no_loci[i]; j++)
-    {
-      if(i==0)
-	linepos=j;
-      else
-	{
-	  linepos = 0;
-	  for(int k=0; k<i; k++)
-	    linepos += no_loci[k];
-	  linepos+=j;
-	}
-      popB_noIndivs[i][j] = get_genotypes(raw_data_popB[linepos],popB_genotypes[i][j]);
-    }
-  *noSamplesPopB = popB_noIndivs[0][0];
+  for (int c = 0; c < *noChrom; c++) {
+    (*popA_haplotypes)[c] = (unsigned int*)malloc(*noSamplesPopA * 2 * sizeof(unsigned int));
+    (*popB_haplotypes)[c] = (unsigned int*)malloc(*noSamplesPopB * 2 * sizeof(unsigned int));
+    (*hybrid_haplotypes)[c] = (unsigned int*)malloc(*noSamplesPophybrid * 2 * sizeof(unsigned int));
+    (*hybrid_missing_masks)[c] = (unsigned int*)calloc(*noSamplesPophybrid, sizeof(unsigned int));
+    popA_missing_masks[c] = (unsigned int*)calloc(*noSamplesPopA, sizeof(unsigned int));
+    popB_missing_masks[c] = (unsigned int*)calloc(*noSamplesPopB, sizeof(unsigned int));
+  }
 
-linepos=0;
-  for(int i=0; i<*noChrom; i++)
-    for(int j=0; j<no_loci[i]; j++)
-    {
-      if(i==0)
-	linepos=j;
-      else
-	{
-	  linepos = 0;
-	  for(int k=0; k<i; k++)
-	    linepos += no_loci[k];
-	  linepos+=j;
-	}
-      pophybrid_noIndivs[i][j] = get_genotypes(raw_data_hybrids[linepos],pophybrid_genotypes[i][j]);
-    }
-  *noSamplesPophybrid = pophybrid_noIndivs[0][0];
-
-  /* allocate memory for haplotype data structures */
-  *popA_haplotypes = (unsigned int **)malloc(*noChrom*sizeof(unsigned int *));
-  for(int i=0; i<*noChrom; i++)
-    (*popA_haplotypes)[i] = (unsigned int *)malloc(*noSamplesPopA*2*sizeof(unsigned int));
-   *popB_haplotypes = (unsigned int **)malloc(*noChrom*sizeof(unsigned int *));
-  for(int i=0; i<*noChrom; i++)
-    (*popB_haplotypes)[i] = (unsigned int *)malloc(*noSamplesPopB*2*sizeof(unsigned int));
-  *hybrid_haplotypes = (unsigned int **)malloc(*noChrom*sizeof(unsigned int *));
-  for(int i=0; i<*noChrom; i++)
-    (*hybrid_haplotypes)[i] = (unsigned int *)malloc(*noSamplesPophybrid*2*sizeof(unsigned int));
-
-  /* allocate memory for missing masks (only needed for hybrids) */
-  *hybrid_missing_masks = (unsigned int **)malloc(*noChrom*sizeof(unsigned int *));
-  for(int i=0; i<*noChrom; i++)
-    (*hybrid_missing_masks)[i] = (unsigned int *)calloc(*noSamplesPophybrid, sizeof(unsigned int));
-
-  /* get sampled population haplotypes as unsigned ints */
-  /* number of haplotypes = 2 * number of individuals sampled */
-  get_haplotypes(*popA_haplotypes,popA_genotypes,*noChrom,*noSamplesPopA,no_loci);
-  get_haplotypes(*popB_haplotypes,popB_genotypes,*noChrom,*noSamplesPopB,no_loci);
-  /* for hybrids, also track missing data */
+  /* Get haplotypes with missing data tracking for all populations */
+  get_haplotypes_with_missing(*popA_haplotypes, popA_missing_masks,
+			      popA_genotypes, *noChrom, *noSamplesPopA, no_loci);
+  get_haplotypes_with_missing(*popB_haplotypes, popB_missing_masks,
+			      popB_genotypes, *noChrom, *noSamplesPopB, no_loci);
   get_haplotypes_with_missing(*hybrid_haplotypes, *hybrid_missing_masks,
 			      pophybrid_genotypes, *noChrom, *noSamplesPophybrid, no_loci);
-  
-  /* verbose output */
-  if (verbose) {
-    pr_summary(popAfileNm, popBfileNm, hybridfileNm, *noChrom, no_loci, chr_names,
-	       popA_noIndivs, popB_noIndivs, pophybrid_noIndivs, *marker_positions);
-  }
-  if(verbose==3)
-    {
-      pr_chr_SNP_stats(*noChrom, chr_names,no_loci, *marker_positions);
-    }
 
-  /* free allocated memory */
+  /* Verbose output */
+  if (verbose) {
+    fprintf(stderr, "Input files:\n");
+    fprintf(stderr, "  Pop A:    %s (%d loci)\n", popAfileNm, n_lines_A);
+    fprintf(stderr, "  Pop B:    %s (%d loci)\n", popBfileNm, n_lines_B);
+    fprintf(stderr, "  Hybrids:  %s (%d loci)\n", hybridfileNm, n_lines_H);
+    fprintf(stderr, "  Merged:   %d unique loci across %d chromosomes\n", n_merged, *noChrom);
+    fprintf(stderr, "\nSamples: n_A=%d, n_B=%d, n_hyb=%d\n\n",
+	    *noSamplesPopA, *noSamplesPopB, *noSamplesPophybrid);
+  }
+
+  /* Free temporary storage */
+  for (int i = 0; i < n_lines_A; i++) free(raw_data_popA[i]);
+  for (int i = 0; i < n_lines_B; i++) free(raw_data_popB[i]);
+  for (int i = 0; i < n_lines_H; i++) free(raw_data_hybrids[i]);
   free(raw_data_popA);
   free(raw_data_popB);
   free(raw_data_hybrids);
+  free(loci_A);
+  free(loci_B);
+  free(loci_H);
+  free(merged_loci);
+
+  for (int c = 0; c < *noChrom; c++) {
+    for (int l = 0; l < no_loci[c]; l++) {
+      free(popA_genotypes[c][l]);
+      free(popB_genotypes[c][l]);
+      free(pophybrid_genotypes[c][l]);
+    }
+    free(popA_genotypes[c]);
+    free(popB_genotypes[c]);
+    free(pophybrid_genotypes[c]);
+    free(popA_missing_masks[c]);
+    free(popB_missing_masks[c]);
+  }
   free(popA_genotypes);
   free(popB_genotypes);
   free(pophybrid_genotypes);
-  free(popA_noIndivs);
-  free(popB_noIndivs);
-  free(pophybrid_noIndivs);
+  free(popA_missing_masks);
+  free(popB_missing_masks);
 } 
   
 /* find if string is in array of strings */
@@ -211,8 +411,8 @@ int countfilelines(char filename[])
   int line_count=0;
   file = fopen(filename, "r");
   if (file == NULL) {
-    printf("Error opening the file.\n");
-    return -1;
+    fprintf(stderr, "mongrail: error: cannot open file '%s'\n", filename);
+    exit(1);
   }
   while ((ch = fgetc(file)) != EOF) {
         if (ch == '\n') {
@@ -220,6 +420,12 @@ int countfilelines(char filename[])
         }
     }
     fclose(file);
+
+    if (line_count == 0) {
+      fprintf(stderr, "mongrail: error: file '%s' is empty or has no newlines\n", filename);
+      exit(1);
+    }
+
     return line_count;
 }
 
@@ -257,20 +463,37 @@ int mk_chrom_list (char* file_array[MAXLINESZ], char names[MAXCHRNUM][MAXNAMESZ]
     {
       strncpy(buffer,file_array[i],MAXLINESZ);
       token = strtok(buffer,delim);
+      if (token == NULL) {
+	fprintf(stderr, "mongrail: error: malformed line %d (missing chromosome name)\n", i+1);
+	exit(1);
+      }
       if(chrpos > 0)
 	{
 	  if(findstring(names,token,chrpos)==0)
 	    {
+	      if (chrpos >= MAXCHRNUM) {
+		fprintf(stderr, "mongrail: error: too many chromosomes (limit: %d)\n", MAXCHRNUM);
+		exit(1);
+	      }
 	      strncpy(names[chrpos],token,MAXNAMESZ);
+	      names[chrpos][MAXNAMESZ-1] = '\0';
 	      no_loci[chrpos] = no_loci[chrpos] + 1;
 	      chrpos++;
 	    }
 	  else
-	    no_loci[chrpos-1] = no_loci[chrpos-1] + 1;
+	    {
+	      no_loci[chrpos-1] = no_loci[chrpos-1] + 1;
+	      if (no_loci[chrpos-1] > 32) {
+		fprintf(stderr, "mongrail: error: too many SNPs (%d) on chromosome '%s' (limit: 32 for .GT format)\n",
+			no_loci[chrpos-1], names[chrpos-1]);
+		exit(1);
+	      }
+	    }
 	}
       else
 	{
 	  strncpy(names[chrpos],token,MAXNAMESZ);
+	  names[chrpos][MAXNAMESZ-1] = '\0';
 	  no_loci[chrpos] = no_loci[chrpos] + 1;;
 	  chrpos++;
 	}
@@ -292,10 +515,29 @@ int get_genotypes(char* gstring, struct genotype* chr_locus)
   char phase;
 
   char *str_copy = strdup(gstring);
+  if (str_copy == NULL) {
+    fprintf(stderr, "mongrail: error: memory allocation failed\n");
+    exit(1);
+  }
   token = strtok(str_copy,delim); // Tokenize based on spaces and :
   token = strtok(NULL,delim);
   token = strtok(NULL,delim);
   while (token != NULL) {
+    /* Validate genotype format: must be at least 3 characters like "0|1" */
+    size_t len = strlen(token);
+    if (len < 3) {
+      fprintf(stderr, "mongrail: error: malformed genotype '%s' (expected format like 0|1)\n", token);
+      free(str_copy);
+      exit(1);
+    }
+
+    /* Check bounds before adding */
+    if (numindivs >= MAXINDIV) {
+      fprintf(stderr, "mongrail: error: too many individuals (limit: %d)\n", MAXINDIV);
+      free(str_copy);
+      exit(1);
+    }
+
     /* Check for missing data: ./. or .|. or -/- or -|- */
     if (token[0] == '.' || token[0] == '-') {
       g1 = MISSING_ALLELE;
@@ -431,7 +673,15 @@ void get_positions(int noChr,int* no_loci, char** raw_data, unsigned long** posi
 	  }
 	strncpy(buffer,raw_data[linepos],MAXLINESZ);
 	token = strtok(buffer,delim);
+	if (token == NULL) {
+	  fprintf(stderr, "mongrail: error: malformed line %d (missing chromosome name)\n", linepos+1);
+	  exit(1);
+	}
 	token = strtok(NULL,delim);
+	if (token == NULL) {
+	  fprintf(stderr, "mongrail: error: malformed line %d (missing position)\n", linepos+1);
+	  exit(1);
+	}
 	positions[i][j] = strtol(token, NULL, 10);
       }
 }
