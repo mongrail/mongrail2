@@ -1,5 +1,5 @@
 
-![a mongrail](images/mongrail2.png)
+<img src="images/mongrail2.png" alt="Dog in holy grail" width="100">
 
 # MONGRAIL 2.0
 
