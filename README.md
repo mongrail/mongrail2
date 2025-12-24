@@ -131,13 +131,13 @@ mongrail2 [options] popA popB hybrids
 
 ## Input File Format
 
-Input files use the `.GT` format with tab-separated fields:
+Input files use the `.GT` format with space or tab-separated fields:
 
 ```
-ChromName  Position  Ind1  Ind2  Ind3  ...
+Chrom:Position  Ind1  Ind2  Ind3  ...
 ```
 
-Each individual's genotype is encoded as `allele1|allele2` or `allele1/allele2`:
+The first field combines chromosome name and position with a colon. Each individual's genotype is encoded as `allele1|allele2` or `allele1/allele2`:
 - `|` indicates phased data
 - `/` indicates unphased data
 - Alleles are `0` or `1`
@@ -145,16 +145,16 @@ Each individual's genotype is encoded as `allele1|allele2` or `allele1/allele2`:
 ### Example input file
 
 ```
-Chr1    1000    0|0    0|1    1|1
-Chr1    2000    0|1    1|1    0|0
-Chr1    3500    0|0    0|1    0|1
-Chr2    500     1|0    0|0    1|1
-Chr2    1200    0|1    0|1    0|0
+Chr1:1000  0|0  0|1  1|1
+Chr1:2000  0|1  1|1  0|0
+Chr1:3500  0|0  0|1  0|1
+Chr2:500   1|0  0|0  1|1
+Chr2:1200  0|1  0|1  0|0
 ```
 
 ### Constraints (.GT format)
 
-- Maximum 16 SNPs per chromosome/scaffold
+- Maximum 32 SNPs per chromosome/scaffold
 - Maximum 1000 chromosomes/scaffolds
 - Maximum 1000 individuals per population
 - Input files may have different loci; missing loci are treated as missing data and integrated over
@@ -186,8 +186,8 @@ chr1    3500  .   G    A    .     PASS    .     GT      0|0   0|1   0|1
 | Error | Cause |
 |-------|-------|
 | `variant at X:Y is not a biallelic SNP` | Indel or multiallelic variant found |
-| `unphased or missing genotype at X:Y` | Genotype uses `/` instead of `|`, or is missing |
-| `too many SNPs on chromosome X` | More than 12 SNPs on a single chromosome |
+| `unphased genotype at X:Y` | Genotype uses `/` instead of `|`, or is missing |
+| `too many SNPs on chromosome X` | More than 16 SNPs on a single chromosome |
 
 ## Output Format
 
@@ -236,7 +236,7 @@ MONGRAIL evaluates six genealogical models for each individual:
 ### Model diagram
 
 ```
-Population A (Md)     Population B (Ma)
+Population A (Ma)     Population B (Md)
      |                     |
      +----------+----------+
                 |
@@ -367,8 +367,7 @@ This program is free software: you can redistribute it and/or modify it under th
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
-[License to be added]
 
-
+## Support
 
 For questions and bug reports, please open an issue on GitHub.
