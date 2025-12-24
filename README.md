@@ -1,5 +1,5 @@
 
-<img src="images/mongrail2.png" alt="Dog in holy grail" width="100">
+<img src="images/mongrail2.png" alt="Dog in holy grail" width="300">
 
 # MONGRAIL 2.0
 
