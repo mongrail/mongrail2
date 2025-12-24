@@ -9,18 +9,76 @@ MONGRAIL classifies individuals as purebred or hybrid based on multilocus genoty
 
 ## Installation
 
-### Requirements
+### Pre-built Binaries (Recommended)
+
+Download the latest release for your platform from the [Releases page](https://github.com/mongrail/mongrail2/releases):
+
+- **Linux (x86_64)**: `mongrail2-linux-x86_64`
+- **macOS (Apple Silicon)**: `mongrail2-macos-arm64`
+- **Windows (x86_64)**: `mongrail2-windows-x86_64.exe`
+
+After downloading, make the binary executable (Linux/macOS):
+
+```bash
+chmod +x mongrail2-linux-x86_64
+./mongrail2-linux-x86_64 --help
+```
+
+#### Installing htslib (Required)
+
+The pre-built binaries require htslib to be installed on your system:
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get install libhts3
+```
+
+**Fedora/RHEL:**
+```bash
+sudo dnf install htslib
+```
+
+**macOS (Homebrew):**
+```bash
+brew install htslib
+```
+
+**Windows (MSYS2):**
+```bash
+pacman -S mingw-w64-x86_64-htslib
+```
+
+### Build from Source
+
+#### Requirements
 
 - GCC compiler
 - GNU Make
 - Standard C math library
-- htslib (for VCF support)
+- htslib development files
 
-### Build
+#### Installing build dependencies
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get install build-essential libhts-dev
+```
+
+**Fedora/RHEL:**
+```bash
+sudo dnf install gcc make htslib-devel
+```
+
+**macOS (Homebrew):**
+```bash
+brew install htslib
+```
+
+#### Compile
 
 ```bash
 git clone https://github.com/mongrail/mongrail2.git
-cd mongrail2/brucesrc
+cd mongrail2
 make
 ```
 
@@ -99,7 +157,7 @@ Chr2    1200    0|1    0|1    0|0
 - Maximum 16 SNPs per chromosome/scaffold
 - Maximum 1000 chromosomes/scaffolds
 - Maximum 1000 individuals per population
-- All three input files must have the same chromosomes and SNP positions
+- Input files may have different loci; missing loci are treated as missing data and integrated over
 
 ## VCF Input Format
 
@@ -110,7 +168,7 @@ When using the `-c` option, MONGRAIL reads standard VCF files.
 - **Phased genotypes**: All genotypes must use `|` separator (e.g., `0|1`)
 - **Biallelic SNPs only**: No indels or multiallelic sites
 - **Maximum 16 SNPs per chromosome**: Hard limit for computational tractability
-- **Matching positions**: All three VCF files must have identical chromosomes and positions
+- **Different loci allowed**: Files may have different loci; missing loci are treated as missing data
 
 ### Example VCF
 
