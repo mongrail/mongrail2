@@ -26,13 +26,20 @@ jobs:
         run: |
           make clean
           make CFLAGS="-Wall -O3 -ffast-math"
-          mv mongrail2 mongrail2-linux-x86_64
+
+      - name: Create archive
+        run: |
+          mkdir -p mongrail2-linux-x86_64
+          cp mongrail2 mongrail2-linux-x86_64/
+          cp -r examples/puma mongrail2-linux-x86_64/
+          cp -r examples/puma_vcf mongrail2-linux-x86_64/
+          tar -czvf mongrail2-linux-x86_64.tar.gz mongrail2-linux-x86_64
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: mongrail2-linux-x86_64
-          path: mongrail2-linux-x86_64
+          path: mongrail2-linux-x86_64.tar.gz
 
   build-macos-arm:
     runs-on: macos-14
@@ -48,13 +55,20 @@ jobs:
           export HTSLIB_PREFIX=$(brew --prefix htslib)
           make clean
           make CFLAGS="-Wall -O3 -ffast-math -I${HTSLIB_PREFIX}/include" LDFLAGS="-L${HTSLIB_PREFIX}/lib -lm -lhts"
-          mv mongrail2 mongrail2-macos-arm64
+
+      - name: Create archive
+        run: |
+          mkdir -p mongrail2-macos-arm64
+          cp mongrail2 mongrail2-macos-arm64/
+          cp -r examples/puma mongrail2-macos-arm64/
+          cp -r examples/puma_vcf mongrail2-macos-arm64/
+          tar -czvf mongrail2-macos-arm64.tar.gz mongrail2-macos-arm64
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: mongrail2-macos-arm64
-          path: mongrail2-macos-arm64
+          path: mongrail2-macos-arm64.tar.gz
 
   build-windows:
     runs-on: windows-latest
@@ -72,18 +86,27 @@ jobs:
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-htslib
             make
+            zip
 
       - name: Build
         run: |
           make clean
           make CFLAGS="-Wall -O3 -ffast-math" CC=gcc
-          mv mongrail2 mongrail2-windows-x86_64.exe
+          mv mongrail2 mongrail2.exe
+
+      - name: Create archive
+        run: |
+          mkdir -p mongrail2-windows-x86_64
+          cp mongrail2.exe mongrail2-windows-x86_64/
+          cp -r examples/puma mongrail2-windows-x86_64/
+          cp -r examples/puma_vcf mongrail2-windows-x86_64/
+          zip -r mongrail2-windows-x86_64.zip mongrail2-windows-x86_64
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: mongrail2-windows-x86_64
-          path: mongrail2-windows-x86_64.exe
+          path: mongrail2-windows-x86_64.zip
 
   create-release:
     needs: [build-linux, build-macos-arm, build-windows]
@@ -117,8 +140,8 @@ jobs:
         with:
           tag_name: ${{ steps.get_tag.outputs.tag }}
           files: |
-            artifacts/mongrail2-linux-x86_64/mongrail2-linux-x86_64
-            artifacts/mongrail2-macos-arm64/mongrail2-macos-arm64
-            artifacts/mongrail2-windows-x86_64/mongrail2-windows-x86_64.exe
+            artifacts/mongrail2-linux-x86_64/mongrail2-linux-x86_64.tar.gz
+            artifacts/mongrail2-macos-arm64/mongrail2-macos-arm64.tar.gz
+            artifacts/mongrail2-windows-x86_64/mongrail2-windows-x86_64.zip
             artifacts/mongrail2-src.tar.gz
             artifacts/mongrail2-src.zip
