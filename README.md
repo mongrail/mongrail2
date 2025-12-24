@@ -1,3 +1,6 @@
+
+![a mongrail](images/mongrail2.png)
+
 # MONGRAIL 2.0
 
 Bayesian inference of hybrid genealogy from population genetic data.
