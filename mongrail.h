@@ -6,7 +6,7 @@
 #define MAXCHRNUM 1000
 #define MAXLOCI 32        /* max SNPs per chromosome (limited by 32-bit haplotype representation) */
 #define MAXFILENMSZ 1000
-#define MAXHAPS 65536     /* max haplotypes to track per chromosome */
+#define MAXHAPS 1048576   /* max haplotypes to track per chromosome (2^20 = ~1M) */
 #define DEFAULT_MAX_RECOMB 4  /* default max recombinations for sparse enumeration */
 
 /* Cache structure for precomputed values */
@@ -19,6 +19,8 @@ struct likelihood_cache {
   unsigned long** marker_positions;  /* marker positions for Q computation */
   /* U(hap) cache per chromosome: U_cache[chrom][hap] (-1 = not computed) */
   double** U_cache;
+  /* U_k1(hap) cache per chromosome for scoring: U_k1_cache[chrom][hap] */
+  double** U_k1_cache;
   /* log P(hap|popA) cache: logP_A[chrom][hap] */
   double** logP_A;
   /* log P(hap|popB) cache: logP_B[chrom][hap] */
@@ -71,7 +73,8 @@ void err_line_n(char p[MAXFILENMSZ], char q[MAXFILENMSZ], char h[MAXFILENMSZ]);
 void pr_summary(char p[MAXFILENMSZ], char q[MAXFILENMSZ], char h[MAXFILENMSZ], int, int n[MAXCHRNUM],
 		char c[MAXCHRNUM][MAXNAMESZ], int**, int**, int**,unsigned long**);
 float gammln(float);
-void get_hap_counts(unsigned int**, int**, int, int);
+void get_hap_counts(unsigned int**, int**, unsigned int**, int*, int, int);
+int find_hap_index(unsigned int hap, unsigned int* haplist, int no_haps);
 unsigned int count_haplotypes(unsigned int, unsigned int, int);
 void compatible_haps(unsigned int*, unsigned int, unsigned int);
 void sortDiplotypes(struct indiv*);
@@ -79,6 +82,21 @@ void pr_hapcounts(int**, char c[MAXCHRNUM][MAXNAMESZ], int);
 void pr_compatible_haps_hybrids(int, char c[MAXCHRNUM][MAXNAMESZ], struct indiv**, int, int n[MAXCHRNUM]);
 double lik_a_d(int, struct indiv**, int**, unsigned int**, int*, int, int, int, enum modelType);
 double lik_c(int, struct indiv**, int**, int**, unsigned int**, int*, int,  int, int);
+/* Pruned versions with haplotype scoring */
+double lik_a_d_pruned(int, struct indiv**, int**, int**, int**, unsigned int**, int*,
+                      int, int, int, enum modelType, double);
+double lik_c_pruned(int, struct indiv**, int**, int**, unsigned int**, int*, int, int, int, double);
+/* Pre-ranked pruning functions (iterate over reference pairs, not hybrid pairs) */
+double lik_a_d_preranked(int, struct indiv**, int**, unsigned int**, int*,
+                         int, int, int, enum modelType, double);
+double lik_c_preranked(int, struct indiv**, int**, int**, unsigned int**, int*,
+                       int, int, int, double);
+double lik_b_e_preranked(struct likelihood_cache*, int, struct indiv**,
+                         int**, int**, unsigned int**, int*,
+                         int, int, int, enum modelType, double);
+double lik_f_preranked(struct likelihood_cache*, int, struct indiv**,
+                       int**, int**, unsigned int**, int*,
+                       int, int, int, double);
 double lik_b_e(int, struct indiv**, int**, int**, unsigned int**, int*, int, int, int,
 	       int*, unsigned long**, double, enum modelType);
 double lik_f(int, struct indiv**, int**, int**, unsigned int**, int*, int, int, int,
@@ -132,12 +150,43 @@ double lik_f_cached(struct likelihood_cache* cache, int indivIndex,
 		    int** popB_hap_counts, int** popA_hap_counts,
 		    unsigned int** haplist, int* no_haps,
 		    int noSamplesPopB, int noSamplesPopA, int noChr);
+double lik_b_e_pruned(struct likelihood_cache* cache, int indivIndex,
+		      struct indiv** hybrid_indiv,
+		      int** popB_hap_counts, int** popA_hap_counts,
+		      unsigned int** haplist, int* no_haps,
+		      int noSamplesPopB, int noSamplesPopA, int noChr,
+		      enum modelType model, double threshold);
+double lik_f_pruned(struct likelihood_cache* cache, int indivIndex,
+		    struct indiv** hybrid_indiv,
+		    int** popB_hap_counts, int** popA_hap_counts,
+		    unsigned int** haplist, int* no_haps,
+		    int noSamplesPopB, int noSamplesPopA, int noChr,
+		    double threshold);
+/* Phased hybrid likelihood functions (direct computation, no pair enumeration) */
+double lik_a_d_phased(int indivIndex, struct indiv** hybrid_indiv,
+		      int** pop_hap_counts, unsigned int** haplist, int* no_haps,
+		      int noSamplesPop, int noChr);
+double lik_c_phased(int indivIndex, struct indiv** hybrid_indiv,
+		    int** popB_hap_counts, int** popA_hap_counts,
+		    unsigned int** haplist, int* no_haps,
+		    int noSamplesPopB, int noSamplesPopA, int noChr);
+double lik_b_e_phased(struct likelihood_cache* cache, int indivIndex,
+		      struct indiv** hybrid_indiv,
+		      int** popB_hap_counts, int** popA_hap_counts,
+		      unsigned int** haplist, int* no_haps,
+		      int noSamplesPopB, int noSamplesPopA, int noChr,
+		      enum modelType model);
+double lik_f_phased(struct likelihood_cache* cache, int indivIndex,
+		    struct indiv** hybrid_indiv,
+		    int** popB_hap_counts, int** popA_hap_counts,
+		    unsigned int** haplist, int* no_haps,
+		    int noSamplesPopB, int noSamplesPopA, int noChr);
 void readDataFiles(char popAfileNm[], char popBfileNm[], char hybridfileNm[],
 		   int* noSamplesPopA, int* noSamplesPopB, int* noSamplesPophybrid,
 		   int* noChrom, char chr_names[MAXCHRNUM][MAXNAMESZ], int no_loci[MAXCHRNUM],
 		   unsigned long*** marker_positions, unsigned int*** popA_haplotypes,
 		   unsigned int*** popB_haplotypes, unsigned int*** hybrid_haplotypes,
-		   unsigned int*** hybrid_missing_masks);
+		   unsigned int*** hybrid_missing_masks, int* hybrid_phased);
 
 /* VCF file reading (requires htslib) */
 int readVCFFiles(char popAfileNm[], char popBfileNm[], char hybridfileNm[],

@@ -1,0 +1,285 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage[margin=1in]{geometry}
+
+\newcommand{\bz}{\mathbf{z}}
+\newcommand{\bx}{\mathbf{x}}
+
+\title{Approximation Methods for Hybrid Likelihood Computation in MONGRAIL}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+Computing likelihoods for hybrid classification requires summing over exponentially many configurations. For unphased genotype data with $L$ loci per chromosome, we must enumerate all compatible haplotype pairs, which can number up to $2^{L-1}$ pairs. Additionally, for models involving recombination (backcross and F2), we must sum over $2^L$ ancestry configurations for each haplotype.
+
+MONGRAIL implements two approximation methods to make computation tractable for chromosomes with many loci:
+\begin{enumerate}
+    \item \textbf{Haplotype pair pruning} (\texttt{-p} option): Limits the sum over compatible haplotype pairs to those with high posterior probability.
+    \item \textbf{Sparse ancestry enumeration} (\texttt{-k} option): Limits the sum over ancestry configurations to those with at most $k$ recombination events.
+\end{enumerate}
+
+\section{Background}
+
+\subsection{Haplotype Pair Enumeration}
+
+For an individual with unphased genotype $G$ at chromosome $c$, the likelihood under model $M$ is:
+\begin{equation}
+P(G \mid M) = \sum_{(h_1, h_2) \in \mathcal{H}(G)} P(h_1, h_2 \mid M)
+\end{equation}
+where $\mathcal{H}(G)$ is the set of haplotype pairs compatible with genotype $G$. For a genotype heterozygous at $m$ sites, $|\mathcal{H}(G)| = 2^{m-1}$.
+
+\subsection{Ancestry Configuration Enumeration}
+
+For a recombinant haplotype $\bx$ from an F1 parent, the probability is:
+\begin{equation}
+U(\bx) = \sum_{\bz \in \{0,1\}^L} Q(\bz) \cdot U(\bx \mid \bz)
+\end{equation}
+where:
+\begin{itemize}
+    \item $\bz = (z_1, \ldots, z_L)$ is the ancestry vector ($z_i = 0$ if locus $i$ derives from population A, $z_i = 1$ if from population B)
+    \item $Q(\bz)$ is the probability of ancestry configuration $\bz$ given recombination
+    \item $U(\bx \mid \bz)$ is the probability of observing haplotype $\bx$ given ancestry $\bz$
+\end{itemize}
+
+\subsection{Recombination Probability}
+
+The probability of ancestry configuration $\bz$ is computed using a continuous-time Markov model. Let $r$ be the recombination rate per base pair and $d_i$ be the distance between loci $i-1$ and $i$. The probability of switching ancestry between adjacent loci is:
+\begin{equation}
+p_i = P(\text{switch at } i) = 1 - \cosh(r \cdot d_i) \cdot e^{-r \cdot d_i}
+\end{equation}
+
+For small $r \cdot d_i$, this approximates the standard $1 - e^{-2rd}$ Haldane map function. The ancestry configuration probability is:
+\begin{equation}
+Q(\bz) = \frac{1}{2} \prod_{i=2}^{L} \begin{cases}
+p_i & \text{if } z_i \neq z_{i-1} \text{ (switch)} \\
+1 - p_i & \text{if } z_i = z_{i-1} \text{ (no switch)}
+\end{cases}
+\end{equation}
+where the factor $\frac{1}{2}$ accounts for equal probability of starting in either population.
+
+\section{Haplotype Pair Pruning}
+
+\subsection{Motivation}
+
+When a genotype is heterozygous at many sites, most compatible haplotype pairs have negligible probability. The pruning approximation identifies high-probability pairs and excludes low-probability pairs from the likelihood sum.
+
+\subsection{Scoring Function}
+
+Each haplotype pair $(h_1, h_2)$ is assigned a score based on its probability under the pure and F1 models. Let $\hat{P}(h \mid X)$ denote the posterior predictive probability of haplotype $h$ given reference population $X$:
+\begin{equation}
+\hat{P}(h \mid X) = \frac{n_h + \alpha}{\sum_{h'} (n_{h'} + \alpha)}
+\end{equation}
+where $n_h$ is the count of haplotype $h$ in population $X$ and $\alpha = 1/H$ is the Dirichlet prior pseudocount.
+
+The scores for each model are:
+\begin{align}
+S_{M_a}(h_1, h_2) &= \hat{P}(h_1 \mid A) \cdot \hat{P}(h_2 \mid A) \\
+S_{M_d}(h_1, h_2) &= \hat{P}(h_1 \mid B) \cdot \hat{P}(h_2 \mid B) \\
+S_{M_c}(h_1, h_2) &= \hat{P}(h_1 \mid A) \cdot \hat{P}(h_2 \mid B) + \hat{P}(h_1 \mid B) \cdot \hat{P}(h_2 \mid A)
+\end{align}
+
+To avoid pruning pairs that are important for any model, we use the combined score:
+\begin{equation}
+S(h_1, h_2) = \max\{S_{M_a}(h_1, h_2), S_{M_d}(h_1, h_2), S_{M_c}(h_1, h_2)\}
+\end{equation}
+
+\subsection{Pruning Algorithm}
+
+\begin{algorithm}[H]
+\caption{Haplotype Pair Pruning}
+\begin{algorithmic}[1]
+\Require Haplotype pairs $\mathcal{H} = \{(h_1^{(k)}, h_2^{(k)})\}_{k=1}^{n}$, threshold $\tau$
+\Ensure Pruned set $\mathcal{H}' \subseteq \mathcal{H}$
+\State Compute scores $S^{(k)} = S(h_1^{(k)}, h_2^{(k)})$ for all $k$
+\State Compute total score $S_{\text{total}} = \sum_k S^{(k)}$
+\State Sort pairs by score in descending order
+\State $\mathcal{H}' \gets \emptyset$
+\State $S_{\text{cumulative}} \gets 0$
+\For{each pair $(h_1^{(k)}, h_2^{(k)})$ in sorted order}
+    \State $\mathcal{H}' \gets \mathcal{H}' \cup \{(h_1^{(k)}, h_2^{(k)})\}$
+    \State $S_{\text{cumulative}} \gets S_{\text{cumulative}} + S^{(k)}$
+    \If{$S_{\text{cumulative}} / S_{\text{total}} \geq \tau$}
+        \State \textbf{break}
+    \EndIf
+\EndFor
+\State \Return $\mathcal{H}'$
+\end{algorithmic}
+\end{algorithm}
+
+The pruned likelihood is then:
+\begin{equation}
+\tilde{P}(G \mid M) = \sum_{(h_1, h_2) \in \mathcal{H}'} P(h_1, h_2 \mid M)
+\end{equation}
+
+\subsection{Properties}
+
+\begin{itemize}
+    \item \textbf{Threshold interpretation}: With $\tau = 0.99$, we include pairs accounting for 99\% of the total score mass.
+    \item \textbf{Model-agnostic}: By taking the maximum over models, we avoid excluding pairs that may be important for hybrid models even if rare in pure populations.
+    \item \textbf{Complexity}: Sorting requires $O(n \log n)$ where $n = |\mathcal{H}|$. The number of pairs evaluated is typically much smaller than $n$ for high thresholds.
+\end{itemize}
+
+\section{Sparse Ancestry Enumeration}
+
+\subsection{Motivation}
+
+For a chromosome with $L$ loci, full enumeration requires summing over $2^L$ ancestry configurations. However, configurations with many recombination events have low probability and contribute little to the sum. The sparse enumeration approximation restricts the sum to configurations with at most $k$ recombination events.
+
+\subsection{Switches and Recombinations}
+
+We define a \emph{switch} as a change in ancestry between adjacent loci. The number of switches in ancestry configuration $\bz$ is:
+\begin{equation}
+\text{switches}(\bz) = \sum_{i=2}^{L} \mathbf{1}[z_i \neq z_{i-1}]
+\end{equation}
+
+The number of switches equals the number of recombination events in the F1 gamete. Configurations with few switches have high probability because $p_i \ll 1$ for typical recombination rates and marker distances.
+
+\subsection{Enumeration Strategy}
+
+Rather than iterating over all $2^L$ configurations and filtering, we directly generate configurations with exactly $s$ switches for $s = 0, 1, \ldots, k$.
+
+A configuration with $s$ switches is determined by:
+\begin{enumerate}
+    \item The starting ancestry $z_1 \in \{0, 1\}$
+    \item The positions of the $s$ switches, chosen from $\{2, 3, \ldots, L\}$
+\end{enumerate}
+
+The number of configurations with exactly $s$ switches is $2 \binom{L-1}{s}$.
+
+\begin{algorithm}[H]
+\caption{Generate Ancestry Configuration from Switch Positions}
+\begin{algorithmic}[1]
+\Require Switch positions $\{i_1, \ldots, i_s\} \subseteq \{2, \ldots, L\}$, starting state $z_1$
+\Ensure Ancestry configuration $\bz$
+\State $\text{current} \gets z_1$
+\State $j \gets 1$ \Comment{Index into switch positions}
+\For{$i = 1$ to $L$}
+    \If{$j \leq s$ and $i = i_j$}
+        \State $\text{current} \gets 1 - \text{current}$ \Comment{Switch ancestry}
+        \State $j \gets j + 1$
+    \EndIf
+    \State $z_i \gets \text{current}$
+\EndFor
+\State \Return $\bz$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Sparse U Computation}
+
+The sparse approximation to $U(\bx)$ is:
+\begin{equation}
+\tilde{U}(\bx) = \sum_{\substack{\bz \in \{0,1\}^L \\ \text{switches}(\bz) \leq k}} Q(\bz) \cdot U(\bx \mid \bz)
+\end{equation}
+
+\begin{algorithm}[H]
+\caption{Sparse Ancestry Enumeration for $U(\bx)$}
+\begin{algorithmic}[1]
+\Require Haplotype $\bx$, max switches $k$, locus count $L$
+\Ensure Approximate $\tilde{U}(\bx)$
+\State $\text{terms} \gets []$ \Comment{Collect log-terms for numerical stability}
+\For{$s = 0$ to $\min(k, L-1)$}
+    \For{each starting state $z_1 \in \{0, 1\}$}
+        \For{each combination $\{i_1, \ldots, i_s\} \subseteq \{2, \ldots, L\}$}
+            \State $\bz \gets \text{GenerateAncestry}(\{i_1, \ldots, i_s\}, z_1)$
+            \State Append $\log Q(\bz) + \log U(\bx \mid \bz)$ to terms
+        \EndFor
+    \EndFor
+\EndFor
+\State \Return $\text{LogSumExp}(\text{terms})$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Complexity Analysis}
+
+The number of configurations enumerated is:
+\begin{equation}
+N(L, k) = \sum_{s=0}^{k} 2\binom{L-1}{s}
+\end{equation}
+
+For typical values:
+\begin{center}
+\begin{tabular}{ccc}
+\toprule
+$L$ & Full ($2^L$) & Sparse ($k=1$) \\
+\midrule
+10 & 1024 & 20 \\
+16 & 65536 & 32 \\
+20 & 1048576 & 40 \\
+32 & $4.3 \times 10^9$ & 64 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+With $k=1$, the complexity is $O(L)$ instead of $O(2^L)$.
+
+\subsection{Accuracy Considerations}
+
+The approximation error depends on:
+\begin{enumerate}
+    \item \textbf{Recombination rate}: Lower rates mean fewer expected switches, improving accuracy.
+    \item \textbf{Marker spacing}: Larger distances increase switch probability per interval.
+    \item \textbf{Number of loci}: More loci increase the chance of multiple switches.
+\end{enumerate}
+
+For typical SNP data with $r \approx 10^{-8}$ per bp and markers spaced $\sim 10^6$ bp apart, the probability of a switch per interval is approximately $p \approx 0.01$. The probability of $>k$ switches across $L$ intervals follows approximately a Poisson distribution with mean $\lambda = (L-1) \cdot p$. For $L = 20$ and $p = 0.01$, $\lambda \approx 0.19$, so $P(>1 \text{ switch}) < 0.02$.
+
+\section{Combined Use}
+
+When both approximations are enabled, they operate at different levels:
+\begin{itemize}
+    \item \textbf{Pair pruning} reduces the outer sum over haplotype pairs
+    \item \textbf{Sparse enumeration} reduces the inner sum over ancestry configurations (for backcross and F2 models)
+\end{itemize}
+
+The pruned, sparse likelihood is:
+\begin{equation}
+\tilde{P}(G \mid M) = \sum_{(h_1, h_2) \in \mathcal{H}'} \tilde{P}(h_1, h_2 \mid M)
+\end{equation}
+where $\tilde{P}(h_1, h_2 \mid M)$ uses sparse $\tilde{U}(\cdot)$ for recombinant haplotype probabilities.
+
+\section{Implementation Notes}
+
+\subsection{Numerical Stability}
+
+All sums are computed using the log-sum-exp trick:
+\begin{equation}
+\log \sum_i e^{x_i} = x_{\max} + \log \sum_i e^{x_i - x_{\max}}
+\end{equation}
+where $x_{\max} = \max_i x_i$. This prevents underflow when individual terms are very small.
+
+\subsection{Caching}
+
+To avoid redundant computation:
+\begin{itemize}
+    \item $U(h)$ values are cached after first computation
+    \item $\log P(h \mid A)$ and $\log P(h \mid B)$ are precomputed for all reference haplotypes
+    \item $Q(\bz)$ values for $k=1$ configurations are precomputed per chromosome
+\end{itemize}
+
+\subsection{Phased Data}
+
+For fully phased data, the haplotype pair is known exactly, so:
+\begin{itemize}
+    \item Pair pruning is unnecessary (only one pair to evaluate)
+    \item Sparse enumeration is still used for $U(h)$ computation in recombinant models
+\end{itemize}
+
+When phased data is detected, the \texttt{-p} option is ignored and a warning is printed.
+
+\section{Recommendations}
+
+\begin{itemize}
+    \item For chromosomes with $\leq 16$ loci, full enumeration is fast and exact.
+    \item For 17--32 loci, use \texttt{-k 1} or \texttt{-k 2} for sparse enumeration.
+    \item For highly heterozygous individuals, use \texttt{-p 0.99} or \texttt{-p 0.999} for pair pruning.
+    \item When accuracy is critical, verify results with higher $k$ or threshold values.
+\end{itemize}
+
+\end{document}

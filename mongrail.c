@@ -45,8 +45,9 @@ static void usage(const char *progname)
   fprintf(stderr, "  hybrids   Genotype file for putative hybrid individuals\n");
   fprintf(stderr, "\nOptions:\n");
   fprintf(stderr, "  -c        Read VCF format (requires phased, biallelic SNPs)\n");
+  fprintf(stderr, "  -p THRESH Prune haplotype pairs by posterior probability (0-1, e.g., 0.99)\n");
   fprintf(stderr, "  -r RATE   Recombination rate per bp (default: 1e-8)\n");
-  fprintf(stderr, "  -k K      Max recombinations per chromosome (default: %d)\n", DEFAULT_MAX_RECOMB);
+  fprintf(stderr, "  -k K      Max recombinations for sparse enumeration (required if >16 loci)\n");
   fprintf(stderr, "  -v        Verbose output (show input file summary)\n");
   fprintf(stderr, "  -h        Show this help message\n");
   fprintf(stderr, "  -V        Show version information\n");
@@ -84,14 +85,23 @@ int main(int argc, char *argv[])
   char chr_names[MAXCHRNUM][MAXNAMESZ];
   int no_loci[MAXCHRNUM] = {0};
   double recomb_rate_per_bp = 1e-8;
-  int max_recomb = DEFAULT_MAX_RECOMB;
+  int max_recomb = -1;  /* -1 means not specified (use exhaustive) */
   int vcf_mode = 0;
+  int hybrid_phased = 0;  /* set by data loading if hybrids have phased genotypes */
+  double prune_threshold = -1.0;  /* -1 means no pruning */
 
   int opt;
-  while ((opt = getopt(argc, argv, "cr:k:vhV")) != -1) {
+  while ((opt = getopt(argc, argv, "cp:r:k:vhV")) != -1) {
     switch (opt) {
     case 'c':
       vcf_mode = 1;
+      break;
+    case 'p':
+      prune_threshold = atof(optarg);
+      if (prune_threshold <= 0 || prune_threshold > 1.0) {
+	fprintf(stderr, "mongrail: error: prune threshold must be between 0 and 1\n");
+	exit(1);
+      }
       break;
     case 'r':
       recomb_rate_per_bp = atof(optarg);
@@ -102,8 +112,8 @@ int main(int argc, char *argv[])
       break;
     case 'k':
       max_recomb = atoi(optarg);
-      if (max_recomb < 1 || max_recomb > 10) {
-	fprintf(stderr, "mongrail: error: max recombinations must be between 1 and 10\n");
+      if (max_recomb < 1 || max_recomb > 31) {
+	fprintf(stderr, "mongrail: error: max recombinations must be between 1 and 31\n");
 	exit(1);
       }
       break;
@@ -143,24 +153,41 @@ int main(int argc, char *argv[])
 		     &hybrid_missing_masks) < 0) {
       exit(1);
     }
+    hybrid_phased = 1;  /* VCF mode requires phased data */
   } else {
     readDataFiles(popAfileNm, popBfileNm, hybridfileNm,
 		  &noSamplesPopA, &noSamplesPopB, &noSamplesPophybrid,
 		  &noChrom, chr_names, no_loci, &marker_positions,
 		  &popA_haplotypes, &popB_haplotypes, &hybrid_haplotypes,
-		  &hybrid_missing_masks);
+		  &hybrid_missing_masks, &hybrid_phased);
   }
 
-  /* allocate and initialize haplotype counts */
-  popA_hap_counts = (int **)malloc(noChrom * sizeof(int *));
-  popB_hap_counts = (int **)malloc(noChrom * sizeof(int *));
+  /* Warn if pruning specified with phased data (pruning is irrelevant) */
+  if (hybrid_phased && prune_threshold > 0) {
+    fprintf(stderr, "mongrail: warning: -p option ignored for phased data "
+	    "(direct computation used)\n");
+  }
+
+  /* Check loci counts and validate -k option */
+  int max_loci = 0;
   for (int i = 0; i < noChrom; i++) {
-    popA_hap_counts[i] = (int *)calloc(MAXHAPS, sizeof(int));
-    popB_hap_counts[i] = (int *)calloc(MAXHAPS, sizeof(int));
+    if (no_loci[i] > max_loci) max_loci = no_loci[i];
   }
 
-  get_hap_counts(popA_haplotypes, popA_hap_counts, noChrom, noSamplesPopA);
-  get_hap_counts(popB_haplotypes, popB_hap_counts, noChrom, noSamplesPopB);
+  if (max_loci > 32) {
+    fprintf(stderr, "mongrail: error: chromosome has %d loci (max 32 supported)\n", max_loci);
+    exit(1);
+  }
+
+  if (max_recomb < 0) {
+    /* -k not specified: use exhaustive enumeration */
+    if (max_loci > 16) {
+      fprintf(stderr, "mongrail: error: chromosome has %d loci (max 16 for exhaustive enumeration)\n", max_loci);
+      fprintf(stderr, "  Use -k option to enable sparse enumeration for larger datasets\n");
+      exit(1);
+    }
+    max_recomb = 32;  /* effectively exhaustive for <=16 loci */
+  }
 
   /* create hybrid individual data structures */
   hybrid_indiv = (struct indiv **)malloc(noChrom * sizeof(struct indiv *));
@@ -179,10 +206,23 @@ int main(int argc, char *argv[])
       /* If there's missing data, expand over all possible haplotypes */
       if (hybrid_indiv[i][j].missing_mask != 0) {
 	expand_missing_haplotypes(&hybrid_indiv[i][j], no_loci[i]);
+      } else if (hybrid_phased) {
+	/* Phased data - haplotypes are known exactly */
+	hybrid_indiv[i][j].numHaps = 2;
+	hybrid_indiv[i][j].compHaps[0] = hybrid_indiv[i][j].genotype1;
+	hybrid_indiv[i][j].compHaps[1] = hybrid_indiv[i][j].genotype2;
       } else {
+	/* Unphased data - enumerate compatible haplotypes */
 	hybrid_indiv[i][j].numHaps = count_haplotypes(hybrid_indiv[i][j].genotype1,
 						      hybrid_indiv[i][j].genotype2,
 						      no_loci[i]);
+	if (hybrid_indiv[i][j].numHaps > MAXHAPS) {
+	  fprintf(stderr, "mongrail: error: individual %d has %d compatible haplotypes "
+		  "(exceeds MAXHAPS=%d)\n", j, hybrid_indiv[i][j].numHaps, MAXHAPS);
+	  fprintf(stderr, "  This happens with too many heterozygous loci. "
+		  "Consider using phased data (-c with VCF).\n");
+	  exit(1);
+	}
 	compatible_haps(hybrid_indiv[i][j].compHaps,
 			hybrid_indiv[i][j].genotype1,
 			hybrid_indiv[i][j].genotype2);
@@ -218,6 +258,17 @@ int main(int argc, char *argv[])
     }
   }
 
+  /* allocate and initialize haplotype counts (indexed by haplist position) */
+  popA_hap_counts = (int **)malloc(noChrom * sizeof(int *));
+  popB_hap_counts = (int **)malloc(noChrom * sizeof(int *));
+  for (int i = 0; i < noChrom; i++) {
+    popA_hap_counts[i] = (int *)calloc(MAXHAPS, sizeof(int));
+    popB_hap_counts[i] = (int *)calloc(MAXHAPS, sizeof(int));
+  }
+
+  get_hap_counts(popA_haplotypes, popA_hap_counts, haplist, nohaps, noChrom, noSamplesPopA);
+  get_hap_counts(popB_haplotypes, popB_hap_counts, haplist, nohaps, noChrom, noSamplesPopB);
+
   /* initialize cache for fast likelihood computation */
   struct likelihood_cache *cache = cache_init(noChrom, no_loci, recomb_rate_per_bp,
 					      marker_positions,
@@ -237,26 +288,68 @@ int main(int argc, char *argv[])
 
   /* compute and output log-likelihoods and posterior probabilities */
   for (int i = 0; i < noSamplesPophybrid; i++) {
-    double lik_d = lik_a_d(i, hybrid_indiv, popA_hap_counts, haplist, nohaps,
-			   noSamplesPopA, noSamplesPopB, noChrom, MODEL_D);
-    double lik_b = lik_b_e_cached(cache, i, hybrid_indiv, popB_hap_counts, popA_hap_counts,
-				  haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom, MODEL_B);
-    double lik_cc = lik_c(i, hybrid_indiv, popB_hap_counts, popA_hap_counts,
-			  haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom);
-    double lik_a = lik_a_d(i, hybrid_indiv, popB_hap_counts, haplist, nohaps,
-			   noSamplesPopA, noSamplesPopB, noChrom, MODEL_A);
-    double lik_e = lik_b_e_cached(cache, i, hybrid_indiv, popB_hap_counts, popA_hap_counts,
-				  haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom, MODEL_E);
-    double lik_ff = lik_f_cached(cache, i, hybrid_indiv, popB_hap_counts, popA_hap_counts,
-				 haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom);
+    double lik_d, lik_cc, lik_a;
+    double lik_b, lik_e, lik_ff;
+
+    if (hybrid_phased) {
+      /* Phased data: use direct likelihood computation (no pair enumeration) */
+      lik_a = lik_a_d_phased(i, hybrid_indiv, popB_hap_counts,
+			     haplist, nohaps, noSamplesPopB, noChrom);
+      lik_d = lik_a_d_phased(i, hybrid_indiv, popA_hap_counts,
+			     haplist, nohaps, noSamplesPopA, noChrom);
+      lik_cc = lik_c_phased(i, hybrid_indiv, popB_hap_counts, popA_hap_counts,
+			    haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom);
+      lik_b = lik_b_e_phased(cache, i, hybrid_indiv, popB_hap_counts, popA_hap_counts,
+			     haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom, MODEL_B);
+      lik_e = lik_b_e_phased(cache, i, hybrid_indiv, popB_hap_counts, popA_hap_counts,
+			     haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom, MODEL_E);
+      lik_ff = lik_f_phased(cache, i, hybrid_indiv, popB_hap_counts, popA_hap_counts,
+			    haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom);
+    } else if (prune_threshold > 0) {
+      /* Unphased with pruning threshold: use pre-ranked functions */
+      lik_d = lik_a_d_preranked(i, hybrid_indiv, popA_hap_counts,
+			       haplist, nohaps,
+			       noSamplesPopA, noSamplesPopB, noChrom,
+			       MODEL_D, prune_threshold);
+      lik_cc = lik_c_preranked(i, hybrid_indiv, popB_hap_counts, popA_hap_counts,
+			      haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom,
+			      prune_threshold);
+      lik_a = lik_a_d_preranked(i, hybrid_indiv, popB_hap_counts,
+			       haplist, nohaps,
+			       noSamplesPopA, noSamplesPopB, noChrom,
+			       MODEL_A, prune_threshold);
+      lik_b = lik_b_e_preranked(cache, i, hybrid_indiv, popB_hap_counts, popA_hap_counts,
+			       haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom,
+			       MODEL_B, prune_threshold);
+      lik_e = lik_b_e_preranked(cache, i, hybrid_indiv, popB_hap_counts, popA_hap_counts,
+			       haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom,
+			       MODEL_E, prune_threshold);
+      lik_ff = lik_f_preranked(cache, i, hybrid_indiv, popB_hap_counts, popA_hap_counts,
+			      haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom,
+			      prune_threshold);
+    } else {
+      /* Unphased without pruning: use original functions */
+      lik_d = lik_a_d(i, hybrid_indiv, popA_hap_counts, haplist, nohaps,
+		      noSamplesPopA, noSamplesPopB, noChrom, MODEL_D);
+      lik_cc = lik_c(i, hybrid_indiv, popB_hap_counts, popA_hap_counts,
+		     haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom);
+      lik_a = lik_a_d(i, hybrid_indiv, popB_hap_counts, haplist, nohaps,
+		      noSamplesPopA, noSamplesPopB, noChrom, MODEL_A);
+      lik_b = lik_b_e_cached(cache, i, hybrid_indiv, popB_hap_counts, popA_hap_counts,
+			     haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom, MODEL_B);
+      lik_e = lik_b_e_cached(cache, i, hybrid_indiv, popB_hap_counts, popA_hap_counts,
+			     haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom, MODEL_E);
+      lik_ff = lik_f_cached(cache, i, hybrid_indiv, popB_hap_counts, popA_hap_counts,
+			    haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom);
+    }
 
     /* Compute posterior probabilities using log-sum-exp trick */
-    double logL[6] = {lik_d, lik_b, lik_cc, lik_a, lik_e, lik_ff};
+    double logL[6] = {lik_a, lik_b, lik_cc, lik_d, lik_e, lik_ff};
     double post[6];
     compute_posteriors(logL, post, 6);
 
     printf("%7d  %10.4f  %10.4f  %10.4f  %10.4f  %10.4f  %10.4f  %7.4f %7.4f %7.4f %7.4f %7.4f %7.4f\n",
-	   i, lik_d, lik_b, lik_cc, lik_a, lik_e, lik_ff,
+	   i, lik_a, lik_b, lik_cc, lik_d, lik_e, lik_ff,
 	   post[0], post[1], post[2], post[3], post[4], post[5]);
   }
 

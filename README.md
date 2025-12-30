@@ -1,7 +1,7 @@
 
 <img src="images/mongrail2.png" alt="Dog in holy grail" width="300">
 
-# MONGRAIL 2.0
+# MONGRAIL 2.1
 
 Bayesian inference of hybrid genealogy from population genetic data.
 
@@ -116,7 +116,9 @@ mongrail2 [options] popA popB hybrids
 | Option | Description |
 |--------|-------------|
 | `-c` | Read VCF format (requires phased, biallelic SNPs; max 16 per chromosome) |
+| `-p THRESH` | Prune haplotype pairs by posterior probability threshold (0-1, e.g., 0.99) |
 | `-r RATE` | Recombination rate per base pair (default: 1e-8) |
+| `-k K` | Max recombinations for sparse enumeration (required if >16 loci per chromosome) |
 | `-v` | Verbose output (show input file summary) |
 | `-h` | Show help message |
 | `-V` | Show version |
@@ -164,6 +166,41 @@ Chr2:1200  0|1  0|1  0|0
 - Maximum 1000 individuals per population
 - Input files may have different loci; missing loci are treated as missing data and integrated over
 
+## Phased vs Unphased Data
+
+MONGRAIL handles phased and unphased genotype data differently for optimal performance and accuracy.
+
+### Phased data (using `|` separator)
+
+When **all** genotypes in the hybrid file use the `|` separator, MONGRAIL uses direct likelihood computation. This computes the probability of the specific observed haplotype pair for each individual, with O(H) complexity per chromosome (where H is the number of distinct haplotypes).
+
+**Advantages:**
+- Significantly faster computation
+- No limit on the number of loci per chromosome
+- The `-p` pruning and `-k` sparse enumeration options are not needed
+
+**Note:** The `-p` option is ignored for phased data (a warning is printed).
+
+### Unphased data (using `/` separator)
+
+When genotypes use the `/` separator, MONGRAIL marginalizes over all possible phasings by enumerating haplotype pairs. This computes P(genotype | model) = Σ P(haplotype_pair | model) over all compatible phasings.
+
+For chromosomes with many loci, use the `-p` or `-k` options to make computation tractable:
+- `-p THRESH`: Prune haplotype pairs with posterior probability below threshold
+- `-k K`: Limit enumeration to haplotype pairs with at most K recombination events
+
+### Partially phased data
+
+If the hybrid file contains a **mixture** of phased (`|`) and unphased (`/`) genotypes, the entire dataset is treated as unphased. This is a conservative approach that ensures correct likelihood computation. To use the faster phased computation, ensure all genotypes are phased.
+
+### Likelihood interpretation
+
+The likelihoods computed for phased and unphased data represent different quantities:
+- **Phased**: P(specific haplotype pair | model)
+- **Unphased**: P(genotype | model) = sum over all compatible phasings
+
+For individuals homozygous at all sites, both methods produce identical results. For heterozygous individuals, unphased likelihoods are generally higher because they sum over multiple possible phasings.
+
 ## VCF Input Format
 
 When using the `-c` option, MONGRAIL reads standard VCF files.
@@ -199,7 +236,7 @@ chr1    3500  .   G    A    .     PASS    .     GT      0|0   0|1   0|1
 Output is written to stdout in a format suitable for downstream processing:
 
 ```
-# mongrail 2.0
+# mongrail 2.1
 # recomb_rate=1.00e-08  chroms=2  n_A=4  n_B=4  n_hyb=3
 #
 # Log-likelihoods followed by posterior probabilities (assuming uniform priors)
@@ -297,14 +334,15 @@ Where `L_i = exp(log-likelihood_i)`.
 
 ## Performance
 
-MONGRAIL 2.0 includes several optimizations for fast likelihood computation:
+MONGRAIL 2.1 includes several optimizations for fast likelihood computation:
 
 - Pre-computed recombination probabilities Q(z)
 - Cached haplotype probabilities U(x)
 - Static memory allocation in hot loops
 - Compiler optimizations (-O3)
+- **Direct computation for phased data**: O(H) per chromosome instead of O(n²) pair enumeration
 
-Typical performance: ~0.3 seconds for 31 individuals across 34 chromosomes.
+Typical performance: ~0.3 seconds for 31 individuals across 34 chromosomes (unphased data). Phased data is significantly faster, especially for chromosomes with many heterozygous sites.
 
 ## Examples
 

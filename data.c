@@ -187,8 +187,10 @@ void readDataFiles(char popAfileNm[], char popBfileNm[], char hybridfileNm[],
 		   int* noChrom, char chr_names[MAXCHRNUM][MAXNAMESZ], int no_loci[MAXCHRNUM],
 		   unsigned long*** marker_positions, unsigned int*** popA_haplotypes,
 		   unsigned int*** popB_haplotypes, unsigned int*** hybrid_haplotypes,
-		   unsigned int*** hybrid_missing_masks)
+		   unsigned int*** hybrid_missing_masks, int* hybrid_phased)
 {
+  /* Initialize phased flag to 0 (unphased) */
+  *hybrid_phased = 0;
   /* Check if any input file is VCF format */
   if (is_vcf_file(popAfileNm) || is_vcf_file(popBfileNm) || is_vcf_file(hybridfileNm)) {
     fprintf(stderr, "mongrail: error: input file appears to be VCF format\n");
@@ -351,6 +353,27 @@ void readDataFiles(char popAfileNm[], char popBfileNm[], char hybridfileNm[],
 			      popB_genotypes, *noChrom, *noSamplesPopB, no_loci);
   get_haplotypes_with_missing(*hybrid_haplotypes, *hybrid_missing_masks,
 			      pophybrid_genotypes, *noChrom, *noSamplesPophybrid, no_loci);
+
+  /* Detect if hybrid data is fully phased by checking ALL phase separators.
+   * If any genotype is unphased ('/'), treat entire dataset as unphased.
+   * This is conservative for partially phased data. */
+  *hybrid_phased = 1;  /* Assume phased until we find an unphased genotype */
+  int found_any = 0;
+  for (int c = 0; c < *noChrom && *hybrid_phased; c++) {
+    for (int l = 0; l < no_loci[c] && *hybrid_phased; l++) {
+      for (int ind = 0; ind < *noSamplesPophybrid && *hybrid_phased; ind++) {
+	if (pophybrid_genotypes[c][l][ind].g1 != MISSING_ALLELE) {
+	  found_any = 1;
+	  if (pophybrid_genotypes[c][l][ind].phase != '|') {
+	    *hybrid_phased = 0;  /* Found unphased genotype */
+	  }
+	}
+      }
+    }
+  }
+  if (!found_any) {
+    *hybrid_phased = 0;  /* No non-missing genotypes found */
+  }
 
   /* Verbose output */
   if (verbose) {
@@ -686,12 +709,28 @@ void get_positions(int noChr,int* no_loci, char** raw_data, unsigned long** posi
       }
 }
 
-/* summarize pop samples as haplotype counts in array of length MAXHAPS with base_10 haplotype as array index */
-void get_hap_counts(unsigned int** haplotypes, int** hap_counts, int noChr, int no_indiv)
+/* Find index of haplotype in haplist. Returns -1 if not found. */
+int find_hap_index(unsigned int hap, unsigned int* haplist, int no_haps)
 {
-  for(int i=0; i<noChr; i++)
-    for(int j=0; j<2*no_indiv; j++)
-      hap_counts[i][haplotypes[i][j]] = hap_counts[i][haplotypes[i][j]] + 1;
+  for (int i = 0; i < no_haps; i++) {
+    if (haplist[i] == hap) return i;
+  }
+  return -1;
+}
+
+/* summarize pop samples as haplotype counts, indexed by haplist position */
+void get_hap_counts(unsigned int** haplotypes, int** hap_counts,
+                    unsigned int** haplist, int* no_haps, int noChr, int no_indiv)
+{
+  for (int i = 0; i < noChr; i++) {
+    for (int j = 0; j < 2 * no_indiv; j++) {
+      unsigned int hap = haplotypes[i][j];
+      int idx = find_hap_index(hap, haplist[i], no_haps[i]);
+      if (idx >= 0) {
+        hap_counts[i][idx]++;
+      }
+    }
+  }
 }
 
 /* get number of polymorphic sites and number of haplotypes for hybrid indivs */
@@ -772,8 +811,9 @@ void expand_missing_haplotypes(struct indiv* ind, int noloci)
    * So we have 4^num_missing = 2^(2*num_missing) total completions */
   int num_completions = 1 << (2 * num_missing);
 
-  /* Temporary storage for diplotypes */
-  unsigned int temp_haps[MAXHAPS * 4];  /* Plenty of space */
+  /* Limit max haplotypes to store - use heap for safety */
+  int max_temp = 65536;  /* Reasonable limit for missing data expansion */
+  unsigned int *temp_haps = malloc(max_temp * sizeof(unsigned int));
   int temp_count = 0;
 
   /* For each completion of missing data */
@@ -799,9 +839,8 @@ void expand_missing_haplotypes(struct indiv* ind, int noloci)
       }
     }
 
-    /* Get compatible haplotypes for this completion */
-    unsigned int comp_haps[MAXHAPS];
-    memset(comp_haps, 0, sizeof(comp_haps));
+    /* Get compatible haplotypes for this completion - limit size */
+    unsigned int *comp_haps = calloc(65536, sizeof(unsigned int));
     compatible_haps(comp_haps, g1, g2);
 
     int num_haps = count_haplotypes(g1, g2, noloci);
@@ -829,11 +868,12 @@ void expand_missing_haplotypes(struct indiv* ind, int noloci)
 	}
       }
 
-      if (!found && temp_count < MAXHAPS * 4 - 2) {
+      if (!found && temp_count < max_temp - 2) {
 	temp_haps[temp_count++] = h1;
 	temp_haps[temp_count++] = h2;
       }
     }
+    free(comp_haps);
   }
 
   /* Copy results to indiv structure */
@@ -841,6 +881,7 @@ void expand_missing_haplotypes(struct indiv* ind, int noloci)
     ind->compHaps[i] = temp_haps[i];
   }
   ind->numHaps = temp_count;
+  free(temp_haps);
 
   /* Store representative genotypes (first completion, for reference) */
   ind->genotype1 = g1_base;
