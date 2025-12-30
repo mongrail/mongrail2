@@ -44,8 +44,9 @@ static void usage(const char *progname)
   fprintf(stderr, "  popB      Genotype file for reference population B\n");
   fprintf(stderr, "  hybrids   Genotype file for putative hybrid individuals\n");
   fprintf(stderr, "\nOptions:\n");
-  fprintf(stderr, "  -c        Read VCF format (requires phased, biallelic SNPs; max %d per chrom)\n", MAXLOCI);
+  fprintf(stderr, "  -c        Read VCF format (requires phased, biallelic SNPs)\n");
   fprintf(stderr, "  -r RATE   Recombination rate per bp (default: 1e-8)\n");
+  fprintf(stderr, "  -k K      Max recombinations per chromosome (default: %d)\n", DEFAULT_MAX_RECOMB);
   fprintf(stderr, "  -v        Verbose output (show input file summary)\n");
   fprintf(stderr, "  -h        Show this help message\n");
   fprintf(stderr, "  -V        Show version information\n");
@@ -83,10 +84,11 @@ int main(int argc, char *argv[])
   char chr_names[MAXCHRNUM][MAXNAMESZ];
   int no_loci[MAXCHRNUM] = {0};
   double recomb_rate_per_bp = 1e-8;
+  int max_recomb = DEFAULT_MAX_RECOMB;
   int vcf_mode = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "cr:vhV")) != -1) {
+  while ((opt = getopt(argc, argv, "cr:k:vhV")) != -1) {
     switch (opt) {
     case 'c':
       vcf_mode = 1;
@@ -95,6 +97,13 @@ int main(int argc, char *argv[])
       recomb_rate_per_bp = atof(optarg);
       if (recomb_rate_per_bp <= 0) {
 	fprintf(stderr, "mongrail: error: recombination rate must be positive\n");
+	exit(1);
+      }
+      break;
+    case 'k':
+      max_recomb = atoi(optarg);
+      if (max_recomb < 1 || max_recomb > 10) {
+	fprintf(stderr, "mongrail: error: max recombinations must be between 1 and 10\n");
 	exit(1);
       }
       break;
@@ -214,7 +223,8 @@ int main(int argc, char *argv[])
 					      marker_positions,
 					      popA_hap_counts, popB_hap_counts,
 					      haplist, nohaps,
-					      noSamplesPopA, noSamplesPopB);
+					      noSamplesPopA, noSamplesPopB,
+					      max_recomb);
 
   /* output header */
   printf("# mongrail %s\n", VERSION);

@@ -1,21 +1,22 @@
- #define VERSION "2.0"
+ #define VERSION "2.1"
 
 #define MAXINDIV 1000
 #define MAXLINESZ 100000
 #define MAXNAMESZ 1000
 #define MAXCHRNUM 1000
-#define MAXLOCI 16        /* max SNPs per chromosome for VCF input */
+#define MAXLOCI 32        /* max SNPs per chromosome (limited by 32-bit haplotype representation) */
 #define MAXFILENMSZ 1000
-#define MAXHAPS 65536     /* 2^MAXLOCI */
-#define MAXANCESTRY 65536 /* 2^MAXLOCI */
+#define MAXHAPS 65536     /* max haplotypes to track per chromosome */
+#define DEFAULT_MAX_RECOMB 4  /* default max recombinations for sparse enumeration */
 
 /* Cache structure for precomputed values */
 struct likelihood_cache {
   int initialized;
   int noChr;
   int* no_loci;
-  /* log Q(z) values per chromosome: logQ_cache[chrom][z] */
-  double** logQ_cache;
+  int max_recomb;           /* max recombinations for sparse enumeration */
+  double recomb_rate;       /* recombination rate per bp */
+  unsigned long** marker_positions;  /* marker positions for Q computation */
   /* U(hap) cache per chromosome: U_cache[chrom][hap] (-1 = not computed) */
   double** U_cache;
   /* log P(hap|popA) cache: logP_A[chrom][hap] */
@@ -111,7 +112,10 @@ struct likelihood_cache* cache_init(int noChr, int* no_loci, double recomb_rate,
 				    unsigned long** marker_positions,
 				    int** popA_hap_counts, int** popB_hap_counts,
 				    unsigned int** haplist, int* no_haps,
-				    int noSamplesPopA, int noSamplesPopB);
+				    int noSamplesPopA, int noSamplesPopB,
+				    int max_recomb);
+/* Sparse enumeration helpers */
+int count_switches(unsigned int z, int noloci);
 void cache_free(struct likelihood_cache* cache);
 double compute_U_cached(struct likelihood_cache* cache, unsigned int hap, int chrom,
 			int** popA_hap_counts, int** popB_hap_counts,

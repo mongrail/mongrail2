@@ -8,43 +8,41 @@
  * CACHE INITIALIZATION AND MANAGEMENT
  *
  * Pre-computes values that are reused across likelihood calculations:
- * - Q(z) values for each ancestry configuration z (per chromosome)
  * - log P(hap|popA) and log P(hap|popB) for all haplotypes
  * - U(hap) values are cached on first computation
+ * - Q(z) values computed on-the-fly with sparse enumeration (≤k switches)
  *============================================================================*/
+
+/* Count the number of switches (transitions) in an ancestry vector.
+ * A switch occurs when adjacent bits differ: z[i] != z[i-1] */
+int count_switches(unsigned int z, int noloci)
+{
+  int switches = 0;
+  for (int i = 1; i < noloci; i++) {
+    int prev_bit = (z >> (i-1)) & 1;
+    int curr_bit = (z >> i) & 1;
+    if (prev_bit != curr_bit) {
+      switches++;
+    }
+  }
+  return switches;
+}
 
 struct likelihood_cache* cache_init(int noChr, int* no_loci, double recomb_rate,
 				    unsigned long** marker_positions,
 				    int** popA_hap_counts, int** popB_hap_counts,
 				    unsigned int** haplist, int* no_haps,
-				    int noSamplesPopA, int noSamplesPopB)
+				    int noSamplesPopA, int noSamplesPopB,
+				    int max_recomb)
 {
   struct likelihood_cache* cache = malloc(sizeof(struct likelihood_cache));
   cache->initialized = 1;
   cache->noChr = noChr;
   cache->no_loci = no_loci;
+  cache->max_recomb = max_recomb;
+  cache->recomb_rate = recomb_rate;
+  cache->marker_positions = marker_positions;
   cache->log2 = log(2.0);
-
-  /* Allocate and pre-compute log Q(z) values.
-   * Exploits symmetry: Q(z) = Q(~z) for all z, so we only need to compute
-   * half the values and copy to the complement position. */
-  cache->logQ_cache = malloc(noChr * sizeof(double*));
-  for (int c = 0; c < noChr; c++) {
-    int num_z = 1 << no_loci[c];
-    cache->logQ_cache[c] = malloc(num_z * sizeof(double));
-    for (int z = 0; z < num_z; z++) {
-      unsigned int z_complement = get_anc_complement(z, no_loci[c]);
-      if (z <= z_complement) {
-        /* Compute Q only for z <= ~z, then store in both positions */
-        double Q_z = prQ(z, no_loci[c], recomb_rate, marker_positions[c]);
-        double log_Q_z = (Q_z > 0) ? log(Q_z) : -1e300;
-        cache->logQ_cache[c][z] = log_Q_z;
-        if (z != z_complement) {
-          cache->logQ_cache[c][z_complement] = log_Q_z;
-        }
-      }
-    }
-  }
 
   /* Allocate U cache (initialized to -1 = not computed) */
   cache->U_cache = malloc(noChr * sizeof(double*));
@@ -83,12 +81,10 @@ void cache_free(struct likelihood_cache* cache)
 {
   if (!cache) return;
   for (int c = 0; c < cache->noChr; c++) {
-    free(cache->logQ_cache[c]);
     free(cache->U_cache[c]);
     free(cache->logP_A[c]);
     free(cache->logP_B[c]);
   }
-  free(cache->logQ_cache);
   free(cache->U_cache);
   free(cache->logP_A);
   free(cache->logP_B);
@@ -127,7 +123,9 @@ static double log_U_given_z_cached(struct likelihood_cache* cache,
   }
 }
 
-/* Compute U(hap) with caching - returns cached value or computes and caches */
+/* Compute U(hap) with caching using sparse enumeration.
+ * Only considers ancestry configurations with ≤ max_recomb switches.
+ * Uses two-pass log-sum-exp for numerical stability. */
 double compute_U_cached(struct likelihood_cache* cache, unsigned int hap, int chrom,
 			int** popA_hap_counts, int** popB_hap_counts,
 			unsigned int** haplist, int* no_haps,
@@ -139,29 +137,75 @@ double compute_U_cached(struct likelihood_cache* cache, unsigned int hap, int ch
   }
 
   int noloci = cache->no_loci[chrom];
-  int num_z = 1 << noloci;
+  int max_recomb = cache->max_recomb;
+  double recomb_rate = cache->recomb_rate;
+  unsigned long* positions = cache->marker_positions[chrom];
 
-  /* Use static buffer to avoid malloc - thread-unsafe but fast */
-  static double log_terms[MAXANCESTRY];
+  /* For small noloci, use full enumeration (faster than checking switches) */
+  int use_full_enum = (noloci <= 16) && ((1 << noloci) <= (1 << max_recomb) * noloci * noloci);
 
-  /* Compute log(U(hap|z) * Q(z)) for each z using cached log Q values */
-  for (int z = 0; z < num_z; z++) {
-    double log_U_z = log_U_given_z_cached(cache, hap, z, noloci,
-					  popA_hap_counts, popB_hap_counts,
-					  haplist, no_haps,
-					  noSamplesPopA, noSamplesPopB, chrom);
-    log_terms[z] = cache->logQ_cache[chrom][z] + log_U_z;
+  /* First pass: find max log term for numerical stability */
+  double max_log = -1e300;
+
+  if (use_full_enum || noloci <= max_recomb + 1) {
+    /* Full enumeration for small noloci */
+    unsigned int num_z = 1U << noloci;
+    for (unsigned int z = 0; z < num_z; z++) {
+      double Q_z = prQ(z, noloci, recomb_rate, positions);
+      double log_Q = (Q_z > 0) ? log(Q_z) : -1e300;
+      double log_U_z = log_U_given_z_cached(cache, hap, z, noloci,
+					    popA_hap_counts, popB_hap_counts,
+					    haplist, no_haps,
+					    noSamplesPopA, noSamplesPopB, chrom);
+      double log_term = log_Q + log_U_z;
+      if (log_term > max_log) max_log = log_term;
+    }
+  } else {
+    /* Sparse enumeration: only configurations with ≤ max_recomb switches */
+    unsigned long num_z = 1UL << noloci;
+    for (unsigned long z = 0; z < num_z; z++) {
+      if (count_switches(z, noloci) <= max_recomb) {
+	double Q_z = prQ(z, noloci, recomb_rate, positions);
+	double log_Q = (Q_z > 0) ? log(Q_z) : -1e300;
+	double log_U_z = log_U_given_z_cached(cache, hap, z, noloci,
+					      popA_hap_counts, popB_hap_counts,
+					      haplist, no_haps,
+					      noSamplesPopA, noSamplesPopB, chrom);
+	double log_term = log_Q + log_U_z;
+	if (log_term > max_log) max_log = log_term;
+      }
+    }
   }
 
-  /* Log-sum-exp for numerical stability */
-  double max_log = log_terms[0];
-  for (int i = 1; i < num_z; i++) {
-    if (log_terms[i] > max_log) max_log = log_terms[i];
-  }
-
+  /* Second pass: compute sum using log-sum-exp */
   double sum = 0.0;
-  for (int i = 0; i < num_z; i++) {
-    sum += exp(log_terms[i] - max_log);
+
+  if (use_full_enum || noloci <= max_recomb + 1) {
+    unsigned int num_z = 1U << noloci;
+    for (unsigned int z = 0; z < num_z; z++) {
+      double Q_z = prQ(z, noloci, recomb_rate, positions);
+      double log_Q = (Q_z > 0) ? log(Q_z) : -1e300;
+      double log_U_z = log_U_given_z_cached(cache, hap, z, noloci,
+					    popA_hap_counts, popB_hap_counts,
+					    haplist, no_haps,
+					    noSamplesPopA, noSamplesPopB, chrom);
+      double log_term = log_Q + log_U_z;
+      sum += exp(log_term - max_log);
+    }
+  } else {
+    unsigned long num_z = 1UL << noloci;
+    for (unsigned long z = 0; z < num_z; z++) {
+      if (count_switches(z, noloci) <= max_recomb) {
+	double Q_z = prQ(z, noloci, recomb_rate, positions);
+	double log_Q = (Q_z > 0) ? log(Q_z) : -1e300;
+	double log_U_z = log_U_given_z_cached(cache, hap, z, noloci,
+					      popA_hap_counts, popB_hap_counts,
+					      haplist, no_haps,
+					      noSamplesPopA, noSamplesPopB, chrom);
+	double log_term = log_Q + log_U_z;
+	sum += exp(log_term - max_log);
+      }
+    }
   }
 
   double result = exp(max_log + log(sum));

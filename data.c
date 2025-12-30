@@ -171,9 +171,9 @@ static int build_chrom_list_from_merged(struct locus* merged, int n_merged,
       n_chrom++;
     } else {
       no_loci[n_chrom-1]++;
-      if (no_loci[n_chrom-1] > 32) {
-	fprintf(stderr, "mongrail: error: too many SNPs (%d) on chromosome '%s' (limit: 32)\n",
-		no_loci[n_chrom-1], current_chr);
+      if (no_loci[n_chrom-1] > MAXLOCI) {
+	fprintf(stderr, "mongrail: error: too many SNPs (%d) on chromosome '%s' (limit: %d)\n",
+		no_loci[n_chrom-1], current_chr, MAXLOCI);
 	exit(1);
       }
     }
@@ -483,9 +483,9 @@ int mk_chrom_list (char* file_array[MAXLINESZ], char names[MAXCHRNUM][MAXNAMESZ]
 	  else
 	    {
 	      no_loci[chrpos-1] = no_loci[chrpos-1] + 1;
-	      if (no_loci[chrpos-1] > 32) {
-		fprintf(stderr, "mongrail: error: too many SNPs (%d) on chromosome '%s' (limit: 32 for .GT format)\n",
-			no_loci[chrpos-1], names[chrpos-1]);
+	      if (no_loci[chrpos-1] > MAXLOCI) {
+		fprintf(stderr, "mongrail: error: too many SNPs (%d) on chromosome '%s' (limit: %d)\n",
+			no_loci[chrpos-1], names[chrpos-1], MAXLOCI);
 		exit(1);
 	      }
 	    }
@@ -571,13 +571,13 @@ int get_genotypes(char* gstring, struct genotype* chr_locus)
 void get_haplotypes(unsigned int** haplotypes, struct genotype*** gdata, int nChr, int noInd, int* nloci)
 {
   int i,j,k;
-  /* Buffer size 33 allows up to 32 loci (max bits in unsigned int) plus null terminator */
-  char hapstring_g1[33];
-  char hapstring_g2[33];
+  /* Buffer size allows up to MAXLOCI loci plus null terminator */
+  char hapstring_g1[MAXLOCI + 1];
+  char hapstring_g2[MAXLOCI + 1];
   for(i=0; i<nChr; i++)
     {
-      if(nloci[i] > 32) {
-	fprintf(stderr, "Error: number of loci (%d) exceeds maximum (32) for chromosome %d\n", nloci[i], i);
+      if(nloci[i] > MAXLOCI) {
+	fprintf(stderr, "Error: number of loci (%d) exceeds maximum (%d) for chromosome %d\n", nloci[i], MAXLOCI, i);
 	exit(1);
       }
       for(j=0; j<noInd; j++)
@@ -610,13 +610,13 @@ void get_haplotypes_with_missing(unsigned int** haplotypes, unsigned int** missi
 				 struct genotype*** gdata, int nChr, int noInd, int* nloci)
 {
   int i,j,k;
-  char hapstring_g1[33];
-  char hapstring_g2[33];
+  char hapstring_g1[MAXLOCI + 1];
+  char hapstring_g2[MAXLOCI + 1];
 
   for(i=0; i<nChr; i++)
     {
-      if(nloci[i] > 32) {
-	fprintf(stderr, "Error: number of loci (%d) exceeds maximum (32) for chromosome %d\n", nloci[i], i);
+      if(nloci[i] > MAXLOCI) {
+	fprintf(stderr, "Error: number of loci (%d) exceeds maximum (%d) for chromosome %d\n", nloci[i], MAXLOCI, i);
 	exit(1);
       }
       for(j=0; j<noInd; j++)
