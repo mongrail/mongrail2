@@ -25,14 +25,24 @@ struct likelihood_cache* cache_init(int noChr, int* no_loci, double recomb_rate,
   cache->no_loci = no_loci;
   cache->log2 = log(2.0);
 
-  /* Allocate and pre-compute log Q(z) values */
+  /* Allocate and pre-compute log Q(z) values.
+   * Exploits symmetry: Q(z) = Q(~z) for all z, so we only need to compute
+   * half the values and copy to the complement position. */
   cache->logQ_cache = malloc(noChr * sizeof(double*));
   for (int c = 0; c < noChr; c++) {
     int num_z = 1 << no_loci[c];
     cache->logQ_cache[c] = malloc(num_z * sizeof(double));
     for (int z = 0; z < num_z; z++) {
-      double Q_z = prQ(z, no_loci[c], recomb_rate, marker_positions[c]);
-      cache->logQ_cache[c][z] = (Q_z > 0) ? log(Q_z) : -1e300;
+      unsigned int z_complement = get_anc_complement(z, no_loci[c]);
+      if (z <= z_complement) {
+        /* Compute Q only for z <= ~z, then store in both positions */
+        double Q_z = prQ(z, no_loci[c], recomb_rate, marker_positions[c]);
+        double log_Q_z = (Q_z > 0) ? log(Q_z) : -1e300;
+        cache->logQ_cache[c][z] = log_Q_z;
+        if (z != z_complement) {
+          cache->logQ_cache[c][z_complement] = log_Q_z;
+        }
+      }
     }
   }
 
