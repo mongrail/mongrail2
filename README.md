@@ -401,7 +401,10 @@ Typical performance: ~0.3 seconds for 31 individuals across 34 chromosomes (unph
 
 If you use MONGRAIL in your research, please cite:
 
-T. Flouri, X. Jiao, J. Huang, B. Rannala, & Z. Yang, Efficient Bayesian inference under the multispecies coalescent with migration, Proc. Natl. Acad. Sci. U.S.A. 120 (44) e2310708120, https://doi.org/10.1073/pnas.2310708120 (2023).
+Sneha Chakraborty, Bruce Rannala. 2025. Improved Bayesian inference of hybrids using genome sequences.
+bioRxiv 2025.12.26.696621; doi: https://doi.org/10.64898/2025.12.26.69662
+
+Sneha Chakraborty, Bruce Rannala. 2023. An efficient exact algorithm for identifying hybrids using population genomic sequences, Genetics 223:4, iyad011, https://doi.org/10.1093/genetics/iyad011
 
 ## License
 
