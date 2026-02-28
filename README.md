@@ -162,10 +162,10 @@ MONGRAIL evaluates six genealogical models for each individual:
 
 | Model | Code | Description | Parental Origin |
 |-------|------|-------------|-----------------|
-| **Ma** | d | Pure population A | Both haplotypes from pop A |
+| **Ma** | a | Pure population B | Both haplotypes from pop B |
 | **Mb** | b | Backcross to A | One haplotype from A, one recombinant (F1 parent) |
 | **Mc** | c | F1 hybrid | One haplotype from A, one from B |
-| **Md** | a | Pure population B | Both haplotypes from pop B |
+| **Md** | d | Pure population A | Both haplotypes from pop A |
 | **Me** | e | Backcross to B | One haplotype from B, one recombinant (F1 parent) |
 | **Mf** | f | F2 hybrid | Both haplotypes recombinant (both parents F1) |
 
@@ -271,7 +271,7 @@ Typical performance: ~0.3 seconds for 31 individuals across 34 chromosomes.
       0     -0.88       -2.29       -9.02      -12.92      -10.37       -3.64
 ```
 
-Individual 0: Ma (-0.88) is the best model by a large margin, indicating this individual is most likely pure population A.
+Individual 0: Ma (-0.88) is the best model by a large margin, indicating this individual is most likely pure population B.
 
 ## Citation
 

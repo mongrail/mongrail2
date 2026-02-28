@@ -23,7 +23,7 @@ static void usage(const char *progname)
   fprintf(stderr, "  -h        Show this help message\n");
   fprintf(stderr, "  -V        Show version information\n");
   fprintf(stderr, "\nModels:\n");
-  fprintf(stderr, "  Ma  Pure population A      Md  Pure population B\n");
+  fprintf(stderr, "  Ma  Pure population B      Md  Pure population A\n");
   fprintf(stderr, "  Mb  Backcross to A         Me  Backcross to B\n");
   fprintf(stderr, "  Mc  F1 hybrid              Mf  F2 hybrid\n");
 }
@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
 				 haplist, nohaps, noSamplesPopB, noSamplesPopA, noChrom);
 
     printf("%7d  %10.4f  %10.4f  %10.4f  %10.4f  %10.4f  %10.4f\n",
-	   i, lik_d, lik_b, lik_cc, lik_a, lik_e, lik_ff);
+	   i, lik_a, lik_b, lik_cc, lik_d, lik_e, lik_ff);
   }
 
   cache_free(cache);
