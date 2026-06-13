@@ -52,7 +52,7 @@ static void usage(const char *progname)
   fprintf(stderr, "  -h        Show this help message\n");
   fprintf(stderr, "  -V        Show version information\n");
   fprintf(stderr, "\nModels:\n");
-  fprintf(stderr, "  Ma  Pure population A      Md  Pure population B\n");
+  fprintf(stderr, "  Ma  Pure population B      Md  Pure population A\n");
   fprintf(stderr, "  Mb  Backcross to A         Me  Backcross to B\n");
   fprintf(stderr, "  Mc  F1 hybrid              Mf  F2 hybrid\n");
 }

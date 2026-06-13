@@ -1,6 +1,6 @@
 CC = gcc
-CFLAGS = -Wall -O3 -march=native -ffast-math
-LDFLAGS = -lm -lhts
+CFLAGS = -Wall -O3 -march=native -ffast-math -fopenmp
+LDFLAGS = -lm -lhts -fopenmp
 
 OBJS = mongrail.o algorithms.o data.o inference.o error.o vcf_reader.o
 

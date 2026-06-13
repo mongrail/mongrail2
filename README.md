@@ -268,17 +268,17 @@ MONGRAIL evaluates six genealogical models for each individual:
 
 | Model | Code | Description | Parental Origin |
 |-------|------|-------------|-----------------|
-| **Ma** | d | Pure population A | Both haplotypes from pop A |
+| **Ma** | a | Pure population B | Both haplotypes from pop B |
 | **Mb** | b | Backcross to A | One haplotype from A, one recombinant (F1 parent) |
 | **Mc** | c | F1 hybrid | One haplotype from A, one from B |
-| **Md** | a | Pure population B | Both haplotypes from pop B |
+| **Md** | d | Pure population A | Both haplotypes from pop A |
 | **Me** | e | Backcross to B | One haplotype from B, one recombinant (F1 parent) |
 | **Mf** | f | F2 hybrid | Both haplotypes recombinant (both parents F1) |
 
 ### Model diagram
 
 ```
-Population A (Ma)     Population B (Md)
+Population B (Ma)     Population A (Md)
      |                     |
      +----------+----------+
                 |
@@ -286,7 +286,7 @@ Population A (Ma)     Population B (Md)
                 |
      +----------+----------+
      |                     |
-Backcross A (Mb)    Backcross B (Me)
+Backcross B (Me)    Backcross A (Mb)
      |                     |
      +----------+----------+
                 |
@@ -393,8 +393,8 @@ Typical performance: ~0.3 seconds for 31 individuals across 34 chromosomes (unph
       2     -7.49       -2.10       -0.79       -7.49       -2.10       -2.10    0.0007  0.1489  0.5518  0.0007  0.1489  0.1489
 ```
 
-- **Individual 0**: P(Ma)=0.76 indicates ~76% probability of being pure population A, with some support for Mb (backcross to A)
-- **Individual 1**: P(Md)=0.76 indicates ~76% probability of being pure population B
+- **Individual 0**: P(Ma)=0.76 indicates ~76% probability of being pure population B, with some support for Mb (backcross to A)
+- **Individual 1**: P(Md)=0.76 indicates ~76% probability of being pure population A
 - **Individual 2**: P(Mc)=0.55 suggests an F1 hybrid, but with notable uncertainty (Mb, Me, Mf each ~15%)
 
 ## Citation
